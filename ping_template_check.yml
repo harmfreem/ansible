@@ -1,12 +1,12 @@
 ---
 - name: Test WinRM connectivity to Windows host
-  hosts: jump-cloud # Замініть на ім'я вашого хоста або групи хостів з інвентаря
-  gather_facts: false # Для win_ping збір фактів не потрібен, це пришвидшує виконання
+  hosts: jump-cloud
+  gather_facts: false
 
   tasks:
     - name: Perform WinRM ping
-      ansible.windows.win_ping:
-      register: win_ping_result # Зареєструвати результат виконання завдання
+      ansible.windows.win_ping: {}
+      register: win_ping_result
 
     - name: Display WinRM ping result
       ansible.builtin.debug:
