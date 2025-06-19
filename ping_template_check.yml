@@ -1,6 +1,9 @@
 ---
-- name: Test WinRM connectivity to Windows host
-  hosts: jump-cloud
+- name: Test WinRM connectivity to all Windows hosts
+  # Changed 'hosts: jump-cloud' to 'hosts: all'
+  # Or, if you specifically want to target your Windows group:
+  # hosts: windows_servers
+  hosts: all # This will attempt to run on ALL hosts defined in your selected inventory
   gather_facts: false
 
   tasks:
@@ -11,3 +14,9 @@
     - name: Display WinRM ping result
       ansible.builtin.debug:
         msg: "Connectivity test result for {{ inventory_hostname }}: {{ win_ping_result.ping }}"
+
+    - name: Handle connection failures
+      ansible.builtin.debug:
+        msg: "Failed to connect to {{ inventory_hostname }}. Error: {{ ansible_failed_result.msg | default('Unknown error') }}"
+      when: win_ping_result is failed
+      ignore_errors: true # Continue even if some hosts fail, so you see results for all
