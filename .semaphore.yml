@@ -1,5 +1,5 @@
 version: v1
 tasks:
-  - name: no-galaxy
-    playbook: playbook.yml
+  - name: skip-galaxy
+    playbook: ping.yml
     galaxy: false
