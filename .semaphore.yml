@@ -1,5 +1,0 @@
-version: v1
-tasks:
-  - name: no-galaxy
-    playbook: playbook.yml
-    galaxy: false
