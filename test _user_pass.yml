@@ -1,6 +1,6 @@
 ---
 - name: Test WinRM connection
-  hosts: windows
+  hosts: SkylansStrong
   gather_facts: no
   vars:
     ansible_user: "{{ win_user }}"
