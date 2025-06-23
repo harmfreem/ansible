@@ -4,8 +4,11 @@
   gather_facts: yes
   vars:
     zabbix_server: "159.69.187.239"
-    zabbix_agent_version: "7.0.47"
-    zabbix_download_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.0/{{ zabbix_agent_version }}/zabbix_agent-{{ zabbix_agent_version }}-windows-amd64-openssl.msi"
+    # ВАЖЛИВО: ПЕРЕВІРТЕ ЦЮ URL-АДРЕСУ ТА ВЕРСІЮ НА ОФІЦІЙНОМУ САЙТІ ZABBIX ДЛЯ 7.0 LTS WINDOWS AMD64 OpenSSL.
+    # Зазвичай, LTS-версії мають базову версію (наприклад, 7.0.0) у шляху завантаження,
+    # а патчі є кумулятивними оновленнями в межах цього ж файлу.
+    zabbix_agent_version_in_url: "7.0.0" # <<-- ОНОВІТЬ ЦЕ ПІСЛЯ ПЕРЕВІРКИ НА САЙТІ ZABBIX
+    zabbix_download_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.0/{{ zabbix_agent_version_in_url }}/zabbix_agent-{{ zabbix_agent_version_in_url }}-windows-amd64-openssl.msi"
     zabbix_msi_path: "C:\\Windows\\Temp\\zabbix_agent.msi"
     zabbix_log: "C:\\Windows\\Temp\\zabbix_install.log"
 
@@ -24,6 +27,10 @@
         }
       ignore_errors: true
 
+    - name: Wait for services to fully stop and file handles to release
+      ansible.windows.win_wait_for:
+        timeout: 10 # Зачекайте до 10 секунд, щоб переконатися, що блокування файлів знято
+
     - name: Delete old Zabbix installation folder (if exists)
       win_file:
         path: "C:\\Program Files\\Zabbix Agent"
@@ -32,17 +39,17 @@
 
     - name: Clean old Zabbix registry keys (optional)
       win_regedit:
-        path: 'HKLM\\SOFTWARE\\Zabbix SIA'
+        path: 'SOFTWARE\Zabbix SIA' # ВИПРАВЛЕНО: без HKLM\
         state: absent
       ignore_errors: true
 
-    - name: Download Zabbix Agent 7.0.47 MSI
+    - name: Download Zabbix Agent MSI
       win_get_url:
         url: "{{ zabbix_download_url }}"
         dest: "{{ zabbix_msi_path }}"
         force: true
 
-    - name: Install Zabbix Agent 7.0.47 using msiexec
+    - name: Install Zabbix Agent using msiexec
       win_command: >
         msiexec.exe /i "{{ zabbix_msi_path }}"
         /qn /norestart
