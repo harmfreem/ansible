@@ -1,0 +1,71 @@
+---
+- name: Install Zabbix Agent 7.2 on Windows
+  hosts: windows
+  gather_facts: yes
+  vars:
+    zabbix_server: "159.69.187.239"
+    zabbix_agent_version: "7.2.0"
+    zabbix_download_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.2/{{ zabbix_agent_version }}/zabbix_agent-{{ zabbix_agent_version }}-windows-amd64-openssl.msi"
+    zabbix_msi_path: "C:\\Windows\\Temp\\zabbix_agent.msi"
+    zabbix_conf_path: "C:\\Program Files\\Zabbix Agent\\zabbix_agentd.conf"
+
+  tasks:
+
+    - name: Stop and remove existing Zabbix Agent service (if any)
+      win_shell: |
+        if (Get-Service -Name "Zabbix Agent" -ErrorAction SilentlyContinue) {
+          Stop-Service -Name "Zabbix Agent" -Force
+          sc.exe delete "Zabbix Agent"
+        }
+      ignore_errors: true
+
+    - name: Uninstall previous Zabbix Agent (if any)
+      win_package:
+        name: Zabbix Agent
+        state: absent
+      ignore_errors: true
+
+    - name: Delete previous installation folder (optional cleanup)
+      win_file:
+        path: "C:\\Program Files\\Zabbix Agent"
+        state: absent
+
+    - name: Download Zabbix Agent 7.2 MSI
+      win_get_url:
+        url: "{{ zabbix_download_url }}"
+        dest: "{{ zabbix_msi_path }}"
+        force: true
+
+    - name: Install Zabbix Agent 7.2
+      win_package:
+        path: "{{ zabbix_msi_path }}"
+        state: present
+        arguments: /quiet
+
+    - name: Configure Zabbix agent parameters
+      win_lineinfile:
+        path: "{{ zabbix_conf_path }}"
+        regexp: '^{{ item.key }}='
+        line: "{{ item.key }}={{ item.value }}"
+      loop:
+        - { key: 'Server',       value: '{{ zabbix_server }}' }
+        - { key: 'ServerActive', value: '{{ zabbix_server }}' }
+        - { key: 'Hostname',     value: '{{ ansible_hostname }}' }
+        - { key: 'DebugLevel',   value: '3' }
+        - { key: 'AllowKey',     value: 'system.run[*]' }
+
+    - name: Open port 10050 for Zabbix agent in Windows Firewall
+      win_firewall_rule:
+        name: "Zabbix Agent Port 10050"
+        localport: 10050
+        protocol: TCP
+        action: allow
+        direction: in
+        state: present
+        enabled: yes
+
+    - name: Ensure Zabbix Agent service is running and enabled
+      win_service:
+        name: "Zabbix Agent"
+        start_mode: auto
+        state: restarted
