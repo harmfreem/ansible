@@ -25,9 +25,13 @@
         url: "{{ xaml_nuget_url }}"
         dest: "{{ temp_dir }}\\Microsoft.UI.Xaml.2.7.3.nupkg"
 
-    - name: Unzip Microsoft.UI.Xaml nupkg via PowerShell
+    - name: Rename .nupkg to .zip
       win_command: >
-        powershell.exe -ExecutionPolicy Bypass -Command "Expand-Archive -Path '{{ temp_dir }}\\Microsoft.UI.Xaml.2.7.3.nupkg' -DestinationPath '{{ temp_dir }}\\xaml' -Force"
+        powershell.exe -ExecutionPolicy Bypass -Command "Rename-Item -Path '{{ temp_dir }}\\Microsoft.UI.Xaml.2.7.3.nupkg' -NewName 'Microsoft.UI.Xaml.2.7.3.zip'"
+
+    - name: Unzip renamed .zip via PowerShell
+      win_command: >
+        powershell.exe -ExecutionPolicy Bypass -Command "Expand-Archive -Path '{{ temp_dir }}\\Microsoft.UI.Xaml.2.7.3.zip' -DestinationPath '{{ temp_dir }}\\xaml' -Force"
 
     - name: Find .appx inside extracted XAML package
       win_find:
