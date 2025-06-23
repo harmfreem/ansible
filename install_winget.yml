@@ -22,4 +22,45 @@
 
     - name: Download Microsoft.UI.Xaml nupkg
       win_get_url:
-        url: "{{ xa
+        url: "{{ xaml_nuget_url }}"
+        dest: "{{ temp_dir }}\\Microsoft.UI.Xaml.2.7.3.nupkg"
+
+    - name: Unzip Microsoft.UI.Xaml nupkg via PowerShell
+      win_command: >
+        powershell.exe -ExecutionPolicy Bypass -Command "Expand-Archive -Path '{{ temp_dir }}\\Microsoft.UI.Xaml.2.7.3.nupkg' -DestinationPath '{{ temp_dir }}\\xaml' -Force"
+
+    - name: Find .appx inside extracted XAML package
+      win_find:
+        paths: "{{ temp_dir }}\\xaml"
+        patterns: "*.appx"
+      register: xaml_appx_files
+
+    - name: Set UI.Xaml appx path
+      set_fact:
+        xaml_appx_path: "{{ xaml_appx_files.files[0].path }}"
+
+    - name: Download App Installer (winget)
+      win_get_url:
+        url: "{{ winget_url }}"
+        dest: "{{ temp_dir }}\\AppInstaller.msixbundle"
+
+    - name: Install Microsoft.VCLibs.x64
+      win_command: >
+        powershell.exe -ExecutionPolicy Bypass -Command "Add-AppxPackage -Path '{{ temp_dir }}\\Microsoft.VCLibs.x64.14.00.Desktop.appx'"
+
+    - name: Install Microsoft.UI.Xaml
+      win_command: >
+        powershell.exe -ExecutionPolicy Bypass -Command "Add-AppxPackage -Path '{{ xaml_appx_path }}'"
+
+    - name: Install winget (App Installer)
+      win_command: >
+        powershell.exe -ExecutionPolicy Bypass -Command "Add-AppxPackage -Path '{{ temp_dir }}\\AppInstaller.msixbundle'"
+
+    - name: Check winget version
+      win_command: winget --version
+      register: winget_version
+      ignore_errors: true
+
+    - name: Show winget version
+      debug:
+        msg: "{{ winget_version.stdout | default('❌ Winget installation failed') }}"
