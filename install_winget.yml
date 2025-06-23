@@ -1,30 +1,18 @@
 ---
-- name: Install Winget (Windows Package Manager)
+- name: Install Winget (Windows Package Manager) - Auto Download
   hosts: windows # Переконайтеся, що ця назва відповідає вашій групі Windows у inventory
   gather_facts: yes
 
   vars:
     # URL для останнього стабільного випуску Winget (MSIXBUNDLE) з GitHub.
-    # *** ВАЖЛИВО: ЗАВЖДИ ПЕРЕВІРЯЙТЕ АКТУАЛЬНІСТЬ ЦЬОГО ПОСИЛАННЯ! ***
-    # Відвідайте: https://github.com/microsoft/winget-cli/releases
-    # На момент 23 червня 2025 року, найновіша стабільна версія - 1.10.390.
-    # Рекомендовано використовувати її, якщо немає особливих вимог до старої версії.
-    # Якщо ви бажаєте версію 1.10.390, використовуйте:
-    # winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.10.390/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-    #
-    # Якщо вам потрібна саме версія 1.7.10861, використовуйте:
+    # Залишаємо версію 1.7.10861, як ви просили раніше.
     winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.7.10861/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
     winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
 
-    # URL для фреймворку Microsoft.UI.Xaml.2.8.
-    # *** ВАЖЛИВО: ЗАВЖДИ ПЕРЕВІРЯЙТЕ АКТУАЛЬНІСТЬ ЦЬОО ЛІНКУ! ***
-    # ЦЕ ПРЯМЕ ПОСИЛАННЯ НА .APPX-ФАЙЛ (не NuGet-пакет).
-    # Знайдіть його на: https://github.com/microsoft/WindowsAppSDK/releases
-    # Шукайте відповідний випуск Windows App SDK (наприклад, v1.4.231115001 або новіший)
-    # та файл Microsoft.UI.Xaml.2.8.appx або .appxbundle в "Assets".
-    microsoft_ui_xaml_url: "https://github.com/microsoft/WindowsAppSDK/releases/download/v1.4.231115001/Microsoft.UI.Xaml.2.8.appx" # <--- ПЕРЕВІРТЕ ЦЕЙ ШЛЯХ!
-    microsoft_ui_xaml_path: "C:\\Windows\\Temp\\Microsoft.UI.Xaml.2.8.appx"
-
+    # ОНОВЛЕНО: Пряма URL для фреймворку Microsoft.UI.Xaml.2.8 (x64) з GitHub.
+    # Це посилання на конкретний .appx файл, який нам потрібен.
+    microsoft_ui_xaml_url: "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx"
+    microsoft_ui_xaml_path: "C:\\Windows\\Temp\\Microsoft.UI.Xaml.2.8.x64.appx" # Оновив ім'я файлу на x64
 
   tasks:
     - name: Check if Winget is already installed and accessible
