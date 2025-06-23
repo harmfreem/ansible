@@ -1,6 +1,6 @@
 ---
-- name: Install Winget (Windows Package Manager) - Auto Download with VCLibs
-  hosts: windows
+- name: Install Winget (Windows Package Manager) - Auto Download
+  hosts: windows # Переконайтеся, що ця назва відповідає вашій групі Windows у inventory
   gather_facts: yes
 
   vars:
@@ -13,11 +13,11 @@
     microsoft_ui_xaml_url: "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx"
     microsoft_ui_xaml_path: "C:\\Windows\\Temp\\Microsoft.UI.Xaml.2.8.x64.appx"
 
-    # *** НОВЕ: URL для фреймворку Microsoft.VCLibs.140.00.UWPDesktop ***
-    # *** ВАЖЛИВО: ПЕРЕВІРТЕ ТА ОНОВІТЬ ЦЕ ПОСИЛАННЯ! ***
-    # Знайдіть правильний файл .appx або .appxbundle в Інтернеті.
-    microsoft_vclibs_url: "YOUR_MICROSOFT_VCLIBS_DOWNLOAD_URL_HERE" # <--- ЗАМІНІТЬ ЦЕ!
-    microsoft_vclibs_path: "C:\\Windows\\Temp\\Microsoft.VCLibs.140.00.UWPDesktop.appx" # Або .appxbundle
+    # *** ОНОВЛЕНО: URL для фреймворку Microsoft.VCLibs.140.00.UWPDesktop ***
+    # *** ВАЖЛИВО: ПЕРЕВІРТЕ ЦЕ ПОСИЛАННЯ! ВОНО ПОВИННО ВКАЗУВАТИ НА .APPX-ФАЙЛ ***
+    # Спробуйте це:
+    microsoft_vclibs_url: "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx" 
+    microsoft_vclibs_path: "C:\\Windows\\Temp\\Microsoft.VCLibs.140.00.UWPDesktop.appx"
 
 
   tasks:
@@ -33,30 +33,28 @@
         force: no
       when: winget_check.failed
 
-    - name: Download Microsoft.UI.Xaml.2.8 framework if needed
-      win_get_url:
-        url: "{{ microsoft_ui_xaml_url }}"
-        dest: "{{ microsoft_ui_xaml_path }}"
-        force: no
-      when: winget_check.failed
-
-    # --- НОВЕ ЗАВДАННЯ: Завантаження Microsoft.VCLibs ---
     - name: Download Microsoft.VCLibs.140.00.UWPDesktop framework if needed
+      # Цей крок завантажить необхідну залежність (VCLibs UWP).
       win_get_url:
         url: "{{ microsoft_vclibs_url }}"
         dest: "{{ microsoft_vclibs_path }}"
         force: no
       when: winget_check.failed
-
-    # --- НОВЕ ЗАВДАННЯ: Встановлення Microsoft.VCLibs ---
+    
     - name: Install Microsoft.VCLibs.140.00.UWPDesktop framework
       win_shell: |
         Add-AppxPackage -Path "{{ microsoft_vclibs_path }}" -ForceUpdateFromAnyVersion
       args:
         executable: powershell.exe
       when: winget_check.failed
-    # ---
 
+    - name: Download Microsoft.UI.Xaml.2.8 framework if needed
+      win_get_url:
+        url: "{{ microsoft_ui_xaml_url }}"
+        dest: "{{ microsoft_ui_xaml_path }}"
+        force: no
+      when: winget_check.failed
+    
     - name: Install Microsoft.UI.Xaml.2.8 framework
       win_shell: |
         Add-AppxPackage -Path "{{ microsoft_ui_xaml_path }}" -ForceUpdateFromAnyVersion
