@@ -1,5 +1,5 @@
 ---
-- name: Advanced Winget Installation & Diagnostics
+- name: Advanced Winget Installation & Diagnostics (No Reboot)
   hosts: windows
   gather_facts: yes
 
@@ -62,21 +62,25 @@
       ignore_errors: true
       when: winget_initial_check.failed
 
-    # --- ОНОВЛЕНО: Переінсталяція Winget ---
     - name: Reinstall Winget using PowerShell (Add-AppxPackage)
       win_shell: |
         Add-AppxPackage -Path "{{ winget_installer_path }}" -ForceUpdateFromAnyVersion
       args:
         executable: powershell.exe
       register: winget_install_attempt
-      ignore_errors: true # Продовжуємо ігнорувати помилки тут
+      ignore_errors: true 
       when: winget_initial_check.failed
 
-    # --- ОНОВЛЕНО: Отримання детальних логів для Microsoft.DesktopAppInstaller ---
     - name: Get detailed AppxPackage log for Microsoft.DesktopAppInstaller
       win_shell: |
-        Get-AppxPackage -Name "Microsoft.DesktopAppInstaller" | Out-Null # Ensure it's visible if installed
-        (Get-AppxPackage -Name "Microsoft.DesktopAppInstaller" | Select-Object -ExpandProperty PackageFullName | ForEach-Object { Get-AppxLog -Package $_ }) | Format-List -Force
+        $package = Get-AppxPackage -Name "Microsoft.DesktopAppInstaller" -ErrorAction SilentlyContinue
+        if ($package) {
+            Get-AppxLog -Package $package.PackageFullName | Format-List -Force
+        } else {
+            Write-Output "Microsoft.DesktopAppInstaller package not found or could not retrieve logs."
+        }
+      args:
+        executable: powershell.exe
       register: appinstaller_log_output
       ignore_errors: true
 
@@ -95,12 +99,7 @@
         msg: "Final Microsoft.DesktopAppInstaller package status:\n{{ final_appinstaller_status.stdout }}"
       when: final_appinstaller_status.stdout is defined and final_appinstaller_status.stdout | length > 0
 
-    - name: Reboot the Windows machine to finalize Winget installation
-      win_reboot:
-        reboot_timeout: 600
-      when: winget_initial_check.failed
-
-    - name: Verify Winget installation by checking version after reboot
+    - name: Verify Winget installation by checking version after all attempts (without reboot)
       win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
       register: winget_final_check
       changed_when: false
@@ -110,7 +109,7 @@
       ansible.builtin.debug:
         msg: "Final Winget status: {{ 'Accessible' if winget_final_check.rc == 0 else 'Not recognized in PATH' }}"
 
-    - name: 'Important Note: Manual investigation might still be necessary'
+    - name: 'Important Note: Manual investigation or reboot might still be necessary'
       ansible.builtin.debug:
-        msg: "WARNING: If Winget still shows 'not recognized', there is a deeper issue on the Windows machine preventing AppX package registration. Review the 'Full AppxPackage Log for Winget' output above for specific error codes or messages. This indicates a deeper Windows OS issue."
+        msg: "WARNING: If Winget still shows 'not recognized', there is a deeper issue on the Windows machine preventing AppX package registration, or a reboot is required for PATH changes to apply. Review the 'Full AppxPackage Log for Winget' output above for specific error codes or messages. Manual troubleshooting (including a reboot) is highly recommended."
       when: winget_final_check.rc != 0
