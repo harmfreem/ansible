@@ -1,25 +1,4 @@
----
-- name: Install Winget (Windows Package Manager)
-  hosts: windows
-  gather_facts: yes
-
-  vars:
-    # Шлях до файлу Winget MSIXBUNDLE на вашому Ansible-контролері.
-    # *** ВАЖЛИВО: ОНОВІТЬ ЦЕЙ ШЛЯХ ***
-    local_winget_installer_src: "/tmp/ansible_downloads/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-    winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
-
-    # НОВА ЗМІННА: URL для фреймворку Microsoft.UI.Xaml.2.8
-    # *** ВАЖЛИВО: ПЕРЕВІРТЕ ТА ОНОВІТЬ ЦЕ ПОСИЛАННЯ ***
-    # Знайдіть його на: https://github.com/microsoft/WindowsAppSDK/releases
-    # Шукайте версію 8.2310.30001.0 або новішу, і файл Microsoft.UI.Xaml.2.8.<версія>.appx/.appxbundle
-    microsoft_ui_xaml_url: "https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.6" # Це посилання на NuGet, яке перенаправляє на .appx
-    # АБО, якщо ви знайдете пряме посилання на .appx/.appxbundle на GitHub:
-    # microsoft_ui_xaml_url: "https://github.com/microsoft/WindowsAppSDK/releases/download/v1.4.231115001/Microsoft.UI.Xaml.2.8.appx" # Це приклад! Шукайте правильну версію.
-    microsoft_ui_xaml_path: "C:\\Windows\\Temp\\Microsoft.UI.Xaml.2.8.appx"
-
-
-  tasks:
+tasks:
     - name: Check if Winget is already installed and accessible
       win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
       register: winget_check
@@ -31,23 +10,21 @@
         dest: "{{ winget_installer_path }}"
       when: winget_check.failed
 
-    ---
+    # REMOVE THE '---' LINE HERE
     - name: Download Microsoft.UI.Xaml.2.8 framework if needed # НОВЕ ЗАВДАННЯ
-      # Цей крок завантажить необхідну залежність
       win_get_url:
         url: "{{ microsoft_ui_xaml_url }}"
         dest: "{{ microsoft_ui_xaml_path }}"
         force: no
-      when: winget_check.failed # Завантажувати лише, якщо Winget ще не встановлено
+      when: winget_check.failed
     
     - name: Install Microsoft.UI.Xaml.2.8 framework # НОВЕ ЗАВДАННЯ
-      # Цей крок встановить фреймворк перед Winget
       win_shell: |
         Add-AppxPackage -Path "{{ microsoft_ui_xaml_path }}" -ForceUpdateFromAnyVersion
       args:
         executable: powershell.exe
-      when: winget_check.failed # Встановлювати лише, якщо Winget ще не встановлено
-    ---
+      when: winget_check.failed
+    # AND REMOVE THE '---' LINE HERE AS WELL
 
     - name: Install Winget using PowerShell (Add-AppxPackage)
       win_shell: |
