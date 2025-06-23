@@ -17,7 +17,7 @@
     winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
 
     # URL для фреймворку Microsoft.UI.Xaml.2.8.
-    # *** ВАЖЛИВО: ЗАВЖДИ ПЕРЕВІРЯЙТЕ АКТУАЛЬНІСТЬ ЦЬОГО ПОСИЛАННЯ! ***
+    # *** ВАЖЛИВО: ЗАВЖДИ ПЕРЕВІРЯЙТЕ АКТУАЛЬНІСТЬ ЦЬОО ЛІНКУ! ***
     # ЦЕ ПРЯМЕ ПОСИЛАННЯ НА .APPX-ФАЙЛ (не NuGet-пакет).
     # Знайдіть його на: https://github.com/microsoft/WindowsAppSDK/releases
     # Шукайте відповідний випуск Windows App SDK (наприклад, v1.4.231115001 або новіший)
@@ -28,21 +28,50 @@
 
   tasks:
     - name: Check if Winget is already installed and accessible
-      # Перевіряємо наявність 'winget.exe' у PATH.
-      # 'ignore_errors: true' дозволяє Ansible продовжити роботу, навіть якщо команду не знайдено.
       win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
       register: winget_check
       ignore_errors: true
 
     - name: Download Winget MSIXBUNDLE if not already installed
-      # Завантажуємо інсталятор Winget з GitHub.
-      # 'force: no' запобігає повторному завантаженню, якщо файл вже існує.
       win_get_url:
         url: "{{ winget_release_url }}"
         dest: "{{ winget_installer_path }}"
         force: no
-      when: winget_check.failed # Виконуємо, лише якщо Winget не було знайдено.
+      when: winget_check.failed
 
     - name: Download Microsoft.UI.Xaml.2.8 framework if needed
-      # Цей крок завантажить необхідну залежність (Microsoft.UI.Xaml).
-      # Використовуємо пря
+      win_get_url:
+        url: "{{ microsoft_ui_xaml_url }}"
+        dest: "{{ microsoft_ui_xaml_path }}"
+        force: no
+      when: winget_check.failed
+    
+    - name: Install Microsoft.UI.Xaml.2.8 framework
+      win_shell: |
+        Add-AppxPackage -Path "{{ microsoft_ui_xaml_path }}" -ForceUpdateFromAnyVersion
+      args:
+        executable: powershell.exe
+      when: winget_check.failed
+
+    - name: Install Winget using PowerShell (Add-AppxPackage)
+      win_shell: |
+        Add-AppxPackage -Path "{{ winget_installer_path }}" -ForceUpdateFromAnyVersion
+      args:
+        executable: powershell.exe
+      when: winget_check.failed
+
+    - name: Verify Winget installation by checking version
+      win_shell: "winget --version"
+      register: winget_version_check
+      changed_when: false
+      when: winget_check.failed or winget_version_check.rc != 0
+
+    - name: Display Winget version if successfully installed
+      ansible.builtin.debug:
+        msg: "Winget installed successfully. Version: {{ winget_version_check.stdout | default('N/A') }}"
+      when: winget_version_check.rc == 0
+
+    - name: 'Note: Rebooting terminal/session might be required for Winget to be in PATH'
+      ansible.builtin.debug:
+        msg: "Winget has been installed. You might need to close and reopen your PowerShell/CMD session for 'winget' command to be recognized in PATH."
+      when: winget_check.failed
