@@ -1,62 +1,73 @@
 ---
 - name: Install Winget (Windows Package Manager)
-  hosts: windows # Переконайтеся, що ця назва відповідає вашій групі Windows у inventory
+  hosts: windows
   gather_facts: yes
 
   vars:
-    # URL для останнього стабільного випуску Winget (MSIXBUNDLE) з GitHub.
-    # ЗАВЖДИ ПЕРЕВІРЯЙТЕ АКТУАЛЬНІСТЬ ЦЬОГО ПОСИЛАННЯ!
-    # Відвідайте: https://github.com/microsoft/winget-cli/releases
-    # Шукайте файл з розширенням .msixbundle (наприклад, Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle)
-    # Наразі найновіша стабільна версія — 1.10.390. Якщо ви хочете її, використовуйте:
-    # "https://github.com/microsoft/winget-cli/releases/download/v1.10.390/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-    #
-    # Якщо вам потрібна саме версія 1.7.10861, використовуйте:
-    winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.7.10861/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" # <--- ЦЕ ПОСИЛАННЯ НА 1.7.10861
-    
+    # Шлях до файлу Winget MSIXBUNDLE на вашому Ansible-контролері.
+    # *** ВАЖЛИВО: ОНОВІТЬ ЦЕЙ ШЛЯХ ***
+    local_winget_installer_src: "/tmp/ansible_downloads/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
     winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
+
+    # НОВА ЗМІННА: URL для фреймворку Microsoft.UI.Xaml.2.8
+    # *** ВАЖЛИВО: ПЕРЕВІРТЕ ТА ОНОВІТЬ ЦЕ ПОСИЛАННЯ ***
+    # Знайдіть його на: https://github.com/microsoft/WindowsAppSDK/releases
+    # Шукайте версію 8.2310.30001.0 або новішу, і файл Microsoft.UI.Xaml.2.8.<версія>.appx/.appxbundle
+    microsoft_ui_xaml_url: "https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.6" # Це посилання на NuGet, яке перенаправляє на .appx
+    # АБО, якщо ви знайдете пряме посилання на .appx/.appxbundle на GitHub:
+    # microsoft_ui_xaml_url: "https://github.com/microsoft/WindowsAppSDK/releases/download/v1.4.231115001/Microsoft.UI.Xaml.2.8.appx" # Це приклад! Шукайте правильну версію.
+    microsoft_ui_xaml_path: "C:\\Windows\\Temp\\Microsoft.UI.Xaml.2.8.appx"
+
 
   tasks:
     - name: Check if Winget is already installed and accessible
-      # Перевіряємо наявність 'winget.exe' у PATH.
-      # ignore_errors дозволяє продовжити, навіть якщо команду не знайдено.
       win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
       register: winget_check
       ignore_errors: true
 
-    - name: Download Winget MSIXBUNDLE if not already installed
-      # Завантажуємо інсталятор Winget з GitHub.
-      # force: no запобігає повторному завантаженню, якщо файл вже існує.
-      win_get_url:
-        url: "{{ winget_release_url }}"
+    - name: Copy Winget MSIXBUNDLE to target if not already installed
+      win_copy:
+        src: "{{ local_winget_installer_src }}"
         dest: "{{ winget_installer_path }}"
+      when: winget_check.failed
+
+    ---
+    - name: Download Microsoft.UI.Xaml.2.8 framework if needed # НОВЕ ЗАВДАННЯ
+      # Цей крок завантажить необхідну залежність
+      win_get_url:
+        url: "{{ microsoft_ui_xaml_url }}"
+        dest: "{{ microsoft_ui_xaml_path }}"
         force: no
-      when: winget_check.failed # Виконуємо, лише якщо Winget не було знайдено.
+      when: winget_check.failed # Завантажувати лише, якщо Winget ще не встановлено
+    
+    - name: Install Microsoft.UI.Xaml.2.8 framework # НОВЕ ЗАВДАННЯ
+      # Цей крок встановить фреймворк перед Winget
+      win_shell: |
+        Add-AppxPackage -Path "{{ microsoft_ui_xaml_path }}" -ForceUpdateFromAnyVersion
+      args:
+        executable: powershell.exe
+      when: winget_check.failed # Встановлювати лише, якщо Winget ще не встановлено
+    ---
 
     - name: Install Winget using PowerShell (Add-AppxPackage)
-      # Встановлюємо пакет MSIXBUNDLE за допомогою Add-AppxPackage.
-      # -ForceUpdateFromAnyVersion дозволяє оновити існуючу версію.
       win_shell: |
         Add-AppxPackage -Path "{{ winget_installer_path }}" -ForceUpdateFromAnyVersion
       args:
         executable: powershell.exe
-      when: winget_check.failed # Виконуємо, лише якщо Winget не було знайдено.
+      when: winget_check.failed
 
     - name: Verify Winget installation by checking version
-      # Повторно перевіряємо встановлення, отримуючи версію Winget.
       win_shell: "winget --version"
       register: winget_version_check
-      changed_when: false # Ця команда не змінює стан системи.
+      changed_when: false
       when: winget_check.failed or winget_version_check.rc != 0
 
     - name: Display Winget version if successfully installed
-      # Виводимо версію Winget, якщо перевірка пройшла успішно.
       ansible.builtin.debug:
         msg: "Winget installed successfully. Version: {{ winget_version_check.stdout | default('N/A') }}"
       when: winget_version_check.rc == 0
 
-    - name: 'Note: Rebooting terminal/session might be required for Winget to be in PATH' # Виправлено синтаксис
-      # Нагадування про необхідність перезапуску сесії PowerShell/CMD.
+    - name: 'Note: Rebooting terminal/session might be required for Winget to be in PATH'
       ansible.builtin.debug:
         msg: "Winget has been installed. You might need to close and reopen your PowerShell/CMD session for 'winget' command to be recognized in PATH."
-      when: winget_check.failed # Показуємо це повідомлення, якщо Winget був щойно встановлений.
+      when: winget_check.failed
