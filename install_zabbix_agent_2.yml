@@ -1,5 +1,5 @@
 ---
-- name: Clean old Zabbix Agent and install 7.2
+- name: Install Zabbix Agent 7.2 on Windows without reboot
   hosts: windows
   gather_facts: yes
   vars:
@@ -7,12 +7,13 @@
     zabbix_agent_version: "7.2.0"
     zabbix_download_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.2/{{ zabbix_agent_version }}/zabbix_agent-{{ zabbix_agent_version }}-windows-amd64-openssl.msi"
     zabbix_msi_path: "C:\\Windows\\Temp\\zabbix_agent.msi"
-    zabbix_conf_path: "C:\\Program Files\\Zabbix Agent\\zabbix_agentd.conf"
+    zabbix_log: "C:\\Windows\\Temp\\zabbix_install.log"
 
   tasks:
     - name: Kill any existing zabbix_agentd.exe processes
       win_shell: |
-        Get-Process -Name zabbix_agentd -ErrorAction SilentlyContinue | Stop-Process -Force
+        $proc = Get-Process -Name zabbix_agentd -ErrorAction SilentlyContinue
+        if ($proc) { $proc | Stop-Process -Force }
       ignore_errors: true
 
     - name: Remove old Zabbix Agent service if exists
@@ -35,36 +36,24 @@
         state: absent
       ignore_errors: true
 
-    - name: Reboot before install
-      win_reboot:
-        msg: "Rebooting before installing Zabbix Agent"
-        reboot_timeout: 600
-
     - name: Download Zabbix Agent 7.2 MSI
       win_get_url:
         url: "{{ zabbix_download_url }}"
         dest: "{{ zabbix_msi_path }}"
         force: true
 
-    - name: Install Zabbix Agent 7.2
-      win_package:
-        path: "{{ zabbix_msi_path }}"
-        state: present
-        arguments: /quiet
+    - name: Install Zabbix Agent 7.2 using msiexec
+      win_command: >
+        msiexec.exe /i "{{ zabbix_msi_path }}"
+        /qn /norestart
+        SERVER="{{ zabbix_server }}"
+        SERVERACTIVE="{{ zabbix_server }}"
+        HOSTNAME="{{ ansible_hostname }}"
+        DEBUGLEVEL=3
+        ALLOWKEY="system.run[*]"
+        /L*V "{{ zabbix_log }}"
 
-    - name: Configure Zabbix agent
-      win_lineinfile:
-        path: "{{ zabbix_conf_path }}"
-        regexp: '^{{ item.key }}='
-        line: "{{ item.key }}={{ item.value }}"
-      loop:
-        - { key: 'Server',       value: '{{ zabbix_server }}' }
-        - { key: 'ServerActive', value: '{{ zabbix_server }}' }
-        - { key: 'Hostname',     value: '{{ ansible_hostname }}' }
-        - { key: 'DebugLevel',   value: '3' }
-        - { key: 'AllowKey',     value: 'system.run[*]' }
-
-    - name: Open port 10050 in firewall
+    - name: Open port 10050 for Zabbix Agent in Windows Firewall
       win_firewall_rule:
         name: "Zabbix Agent 10050"
         localport: 10050
@@ -74,8 +63,8 @@
         state: present
         enabled: yes
 
-    - name: Ensure Zabbix Agent service is running
+    - name: Ensure Zabbix Agent service is running and enabled
       win_service:
         name: "Zabbix Agent"
+        state: started
         start_mode: auto
-        state: restarted
