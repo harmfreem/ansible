@@ -1,3 +1,15 @@
+---
+- name: Clean old Zabbix Agent and install 7.2
+  hosts: windows
+  gather_facts: yes
+  vars:
+    zabbix_server: "159.69.187.239"
+    zabbix_agent_version: "7.2.0"
+    zabbix_download_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.2/{{ zabbix_agent_version }}/zabbix_agent-{{ zabbix_agent_version }}-windows-amd64-openssl.msi"
+    zabbix_msi_path: "C:\\Windows\\Temp\\zabbix_agent.msi"
+    zabbix_conf_path: "C:\\Program Files\\Zabbix Agent\\zabbix_agentd.conf"
+
+  tasks:
     - name: Kill any existing zabbix_agentd.exe processes
       win_shell: |
         Get-Process -Name zabbix_agentd -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -23,7 +35,47 @@
         state: absent
       ignore_errors: true
 
-    - name: Reboot before reinstall (to clear locked files/services)
+    - name: Reboot before install
       win_reboot:
-        msg: "Rebooting before Zabbix Agent installation to clean up."
+        msg: "Rebooting before installing Zabbix Agent"
         reboot_timeout: 600
+
+    - name: Download Zabbix Agent 7.2 MSI
+      win_get_url:
+        url: "{{ zabbix_download_url }}"
+        dest: "{{ zabbix_msi_path }}"
+        force: true
+
+    - name: Install Zabbix Agent 7.2
+      win_package:
+        path: "{{ zabbix_msi_path }}"
+        state: present
+        arguments: /quiet
+
+    - name: Configure Zabbix agent
+      win_lineinfile:
+        path: "{{ zabbix_conf_path }}"
+        regexp: '^{{ item.key }}='
+        line: "{{ item.key }}={{ item.value }}"
+      loop:
+        - { key: 'Server',       value: '{{ zabbix_server }}' }
+        - { key: 'ServerActive', value: '{{ zabbix_server }}' }
+        - { key: 'Hostname',     value: '{{ ansible_hostname }}' }
+        - { key: 'DebugLevel',   value: '3' }
+        - { key: 'AllowKey',     value: 'system.run[*]' }
+
+    - name: Open port 10050 in firewall
+      win_firewall_rule:
+        name: "Zabbix Agent 10050"
+        localport: 10050
+        protocol: tcp
+        action: allow
+        direction: in
+        state: present
+        enabled: yes
+
+    - name: Ensure Zabbix Agent service is running
+      win_service:
+        name: "Zabbix Agent"
+        start_mode: auto
+        state: restarted
