@@ -1,0 +1,52 @@
+---
+- name: Install Winget (Windows Package Manager)
+  hosts: windows # Переконайтеся, що це відповідає назві вашої групи Windows у inventory
+  gather_facts: yes
+
+  vars:
+    # URL для останнього випуску Winget (MSIXBUNDLE) з GitHub
+    # Завжди перевіряйте останній стабільний випуск тут: https://github.com/microsoft/winget-cli/releases
+    # Шукайте файл з розширенням .msixbundle
+    winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.7.10811/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+    winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
+
+  tasks:
+    - name: Check if Winget is already installed and accessible
+      win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
+      register: winget_check
+      ignore_errors: true # Ми очікуємо, що це може завершитися помилкою, якщо Winget відсутній
+
+    - name: Download Winget MSIXBUNDLE if not already installed
+      win_get_url:
+        url: "{{ winget_release_url }}"
+        dest: "{{ winget_installer_path }}"
+        force: no # Завантажувати лише якщо файл не існує або відрізняється
+      when: winget_check.failed # Завантажувати, лише якщо winget не знайдено
+
+    - name: Install Winget using PowerShell (Add-AppxPackage)
+      # Використовуємо Add-AppxPackage для встановлення пакета MSIXBUNDLE
+      # /quiet для тихої інсталяції, /norestart для запобігання перезавантаженню
+      win_shell: |
+        Add-AppxPackage -Path "{{ winget_installer_path }}" -ForceUpdateFromAnyVersion
+      args:
+        # Цей параметр args (chdir) може допомогти, якщо Add-AppxPackage має проблеми з відносними шляхами,
+        # але для повного шляху dest він зазвичай не потрібен.
+        # chdir: C:\Windows\Temp\
+        executable: powershell.exe
+      when: winget_check.failed # Встановлювати, лише якщо winget не знайдено
+
+    - name: Verify Winget installation by checking version
+      win_shell: "winget --version"
+      register: winget_version_check
+      changed_when: false # Ця команда не змінює стан системи
+      when: winget_check.failed or winget_version_check.rc != 0 # Перевіряємо, якщо встановлення відбулося або попередня перевірка була невдалою
+
+    - name: Display Winget version if successfully installed
+      ansible.builtin.debug:
+        msg: "Winget installed successfully. Version: {{ winget_version_check.stdout | default('N/A') }}"
+      when: winget_version_check.rc == 0
+
+    - name: Note: Rebooting terminal/session might be required for Winget to be in PATH
+      ansible.builtin.debug:
+        msg: "Winget has been installed. You might need to close and reopen your PowerShell/CMD session for 'winget' command to be recognized in PATH."
+      when: winget_check.failed
