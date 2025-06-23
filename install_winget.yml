@@ -1,18 +1,48 @@
 ---
 - name: Install Winget (Windows Package Manager)
-  hosts: windows 
+  hosts: windows # Переконайтеся, що ця назва відповідає вашій групі Windows у inventory
   gather_facts: yes
 
   vars:
-    # ... (інші змінні без змін) ...
-    
+    # URL для останнього стабільного випуску Winget (MSIXBUNDLE) з GitHub.
+    # *** ВАЖЛИВО: ЗАВЖДИ ПЕРЕВІРЯЙТЕ АКТУАЛЬНІСТЬ ЦЬОГО ПОСИЛАННЯ! ***
+    # Відвідайте: https://github.com/microsoft/winget-cli/releases
+    # На момент 23 червня 2025 року, найновіша стабільна версія - 1.10.390.
+    # Рекомендовано використовувати її, якщо немає особливих вимог до старої версії.
+    # Якщо ви бажаєте версію 1.10.390, використовуйте:
+    # winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.10.390/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+    #
+    # Якщо вам потрібна саме версія 1.7.10861, використовуйте:
+    winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.7.10861/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+    winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
+
     # URL для фреймворку Microsoft.UI.Xaml.2.8.
-    # *** ВАЖЛИВО: ОНОВЛЕНО! ТЕПЕР ЦЕ ПРЯМЕ ПОСИЛАННЯ НА .APPX/.APPXBUNDLE ***
+    # *** ВАЖЛИВО: ЗАВЖДИ ПЕРЕВІРЯЙТЕ АКТУАЛЬНІСТЬ ЦЬОГО ПОСИЛАННЯ! ***
+    # ЦЕ ПРЯМЕ ПОСИЛАННЯ НА .APPX-ФАЙЛ (не NuGet-пакет).
     # Знайдіть його на: https://github.com/microsoft/WindowsAppSDK/releases
-    # Це приклад для v1.4.231115001, шукайте актуальний!
-    microsoft_ui_xaml_url: "https://github.com/microsoft/WindowsAppSDK/releases/download/v1.4.231115001/Microsoft.UI.Xaml.2.8.appx" 
+    # Шукайте відповідний випуск Windows App SDK (наприклад, v1.4.231115001 або новіший)
+    # та файл Microsoft.UI.Xaml.2.8.appx або .appxbundle в "Assets".
+    microsoft_ui_xaml_url: "https://github.com/microsoft/WindowsAppSDK/releases/download/v1.4.231115001/Microsoft.UI.Xaml.2.8.appx" # <--- ПЕРЕВІРТЕ ЦЕЙ ШЛЯХ!
     microsoft_ui_xaml_path: "C:\\Windows\\Temp\\Microsoft.UI.Xaml.2.8.appx"
 
 
   tasks:
-    # ... (усі завдання без змін) ...
+    - name: Check if Winget is already installed and accessible
+      # Перевіряємо наявність 'winget.exe' у PATH.
+      # 'ignore_errors: true' дозволяє Ansible продовжити роботу, навіть якщо команду не знайдено.
+      win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
+      register: winget_check
+      ignore_errors: true
+
+    - name: Download Winget MSIXBUNDLE if not already installed
+      # Завантажуємо інсталятор Winget з GitHub.
+      # 'force: no' запобігає повторному завантаженню, якщо файл вже існує.
+      win_get_url:
+        url: "{{ winget_release_url }}"
+        dest: "{{ winget_installer_path }}"
+        force: no
+      when: winget_check.failed # Виконуємо, лише якщо Winget не було знайдено.
+
+    - name: Download Microsoft.UI.Xaml.2.8 framework if needed
+      # Цей крок завантажить необхідну залежність (Microsoft.UI.Xaml).
+      # Використовуємо пря
