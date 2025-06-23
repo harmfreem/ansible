@@ -4,49 +4,56 @@
   gather_facts: yes
 
   vars:
-    # URL для останнього випуску Winget (MSIXBUNDLE) з GitHub
-    # Завжди перевіряйте останній стабільний випуск тут: https://github.com/microsoft/winget-cli/releases
-    # Шукайте файл з розширенням .msixbundle
+    # URL для останнього випуску Winget (MSIXBUNDLE) з GitHub.
+    # ВАЖЛИВО: Завжди перевіряйте останній стабільний випуск тут:
+    # https://github.com/microsoft/winget-cli/releases
+    # Шукайте файл з розширенням .msixbundle (наприклад, Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle)
+    # Зверніть увагу, що номер версії в URL (наприклад, v1.7.10811) та ім'я файлу можуть змінюватися.
     winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.7.10811/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
     winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
 
   tasks:
     - name: Check if Winget is already installed and accessible
+      # Використовуємо Get-Command для перевірки наявності 'winget.exe' у PATH.
+      # ignore_errors дозволяє продовжувати роботу, якщо команда не знайдена.
       win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
       register: winget_check
-      ignore_errors: true # Ми очікуємо, що це може завершитися помилкою, якщо Winget відсутній
+      ignore_errors: true
 
     - name: Download Winget MSIXBUNDLE if not already installed
+      # Завантажуємо інсталятор Winget лише в тому випадку, якщо він ще не встановлений.
+      # force: no запобігає повторному завантаженню, якщо файл вже існує.
       win_get_url:
         url: "{{ winget_release_url }}"
         dest: "{{ winget_installer_path }}"
-        force: no # Завантажувати лише якщо файл не існує або відрізняється
-      when: winget_check.failed # Завантажувати, лише якщо winget не знайдено
+        force: no
+      when: winget_check.failed
 
     - name: Install Winget using PowerShell (Add-AppxPackage)
-      # Використовуємо Add-AppxPackage для встановлення пакета MSIXBUNDLE
-      # /quiet для тихої інсталяції, /norestart для запобігання перезавантаженню
+      # Використовуємо Add-AppxPackage для встановлення пакета MSIXBUNDLE.
+      # -ForceUpdateFromAnyVersion дозволяє оновити існуючу версію.
       win_shell: |
         Add-AppxPackage -Path "{{ winget_installer_path }}" -ForceUpdateFromAnyVersion
       args:
-        # Цей параметр args (chdir) може допомогти, якщо Add-AppxPackage має проблеми з відносними шляхами,
-        # але для повного шляху dest він зазвичай не потрібен.
-        # chdir: C:\Windows\Temp\
         executable: powershell.exe
-      when: winget_check.failed # Встановлювати, лише якщо winget не знайдено
+      when: winget_check.failed # Встановлювати, лише якщо winget не було знайдено
 
     - name: Verify Winget installation by checking version
+      # Перевіряємо встановлення, отримуючи версію Winget.
       win_shell: "winget --version"
       register: winget_version_check
       changed_when: false # Ця команда не змінює стан системи
-      when: winget_check.failed or winget_version_check.rc != 0 # Перевіряємо, якщо встановлення відбулося або попередня перевірка була невдалою
+      # Виконуємо, якщо попередній check був невдалим або якщо командний рядок Winget повернув помилку (наприклад, не знайдено).
+      when: winget_check.failed or winget_version_check.rc != 0
 
     - name: Display Winget version if successfully installed
+      # Виводимо версію Winget, якщо перевірка пройшла успішно.
       ansible.builtin.debug:
         msg: "Winget installed successfully. Version: {{ winget_version_check.stdout | default('N/A') }}"
       when: winget_version_check.rc == 0
 
-    - name: Note: Rebooting terminal/session might be required for Winget to be in PATH
+    - name: 'Note: Rebooting terminal/session might be required for Winget to be in PATH' # <-- Виправлено синтаксичну помилку тут
+      # Повідомлення для користувача про необхідність перезапуску сеансу.
       ansible.builtin.debug:
         msg: "Winget has been installed. You might need to close and reopen your PowerShell/CMD session for 'winget' command to be recognized in PATH."
-      when: winget_check.failed
+      when: winget_check.failed # Показуємо це повідомлення, якщо Winget був щойно встановлений
