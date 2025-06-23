@@ -29,7 +29,7 @@
       win_get_url:
         url: "{{ winget_release_url }}"
         dest: "{{ winget_installer_path }}"
-        force: yes # Завжди завантажувати, щоб переконатися, що файл не пошкоджений
+        force: yes 
       when: winget_initial_check.failed
 
     - name: Download Microsoft.VCLibs.140.00.UWPDesktop framework
@@ -71,22 +71,18 @@
       ignore_errors: true 
       when: winget_initial_check.failed
 
-    - name: Get detailed AppxPackage log for Microsoft.DesktopAppInstaller
+    # --- ВИПРАВЛЕНО: Отримання детальних логів без параметра -Package ---
+    - name: Get detailed AppxPackage log (General)
       win_shell: |
-        $package = Get-AppxPackage -Name "Microsoft.DesktopAppInstaller" -ErrorAction SilentlyContinue
-        if ($package) {
-            Get-AppxLog -Package $package.PackageFullName | Format-List -Force
-        } else {
-            Write-Output "Microsoft.DesktopAppInstaller package not found or could not retrieve logs."
-        }
+        Get-AppxLog | Format-List -Force
       args:
         executable: powershell.exe
       register: appinstaller_log_output
       ignore_errors: true
 
-    - name: Display AppxPackage Log for Microsoft.DesktopAppInstaller
+    - name: Display AppxPackage Log (General - look for 'Fail', 'Error', 'HRESULT')
       ansible.builtin.debug:
-        msg: "Full AppxPackage Log for Winget (look for 'Fail', 'Error', 'HRESULT'):\n{{ appinstaller_log_output.stdout }}"
+        msg: "Full AppxPackage Log (General - look for 'Fail', 'Error', 'HRESULT'):\n{{ appinstaller_log_output.stdout }}"
       when: appinstaller_log_output.stdout is defined and appinstaller_log_output.stdout | length > 0
 
     - name: Check final status of Microsoft.DesktopAppInstaller package
@@ -111,5 +107,5 @@
 
     - name: 'Important Note: Manual investigation or reboot might still be necessary'
       ansible.builtin.debug:
-        msg: "WARNING: If Winget still shows 'not recognized', there is a deeper issue on the Windows machine preventing AppX package registration, or a reboot is required for PATH changes to apply. Review the 'Full AppxPackage Log for Winget' output above for specific error codes or messages. Manual troubleshooting (including a reboot) is highly recommended."
+        msg: "WARNING: If Winget still shows 'not recognized', there is a deeper issue on the Windows machine preventing AppX package registration, or a reboot is required for PATH changes to apply. Review the 'Full AppxPackage Log (General)' output above for specific error codes or messages. Manual troubleshooting (including a reboot) is highly recommended."
       when: winget_final_check.rc != 0
