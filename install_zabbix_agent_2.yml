@@ -1,11 +1,11 @@
 ---
-- name: Install Zabbix Agent 7.2 on Windows without reboot
+- name: Install Zabbix Agent 7.0.47 LTS on Windows without reboot
   hosts: windows
   gather_facts: yes
   vars:
     zabbix_server: "159.69.187.239"
-    zabbix_agent_version: "7.2.0"
-    zabbix_download_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.2/{{ zabbix_agent_version }}/zabbix_agent-{{ zabbix_agent_version }}-windows-amd64-openssl.msi"
+    zabbix_agent_version: "7.0.47"
+    zabbix_download_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.0/{{ zabbix_agent_version }}/zabbix_agent-{{ zabbix_agent_version }}-windows-amd64-openssl.msi"
     zabbix_msi_path: "C:\\Windows\\Temp\\zabbix_agent.msi"
     zabbix_log: "C:\\Windows\\Temp\\zabbix_install.log"
 
@@ -36,13 +36,13 @@
         state: absent
       ignore_errors: true
 
-    - name: Download Zabbix Agent 7.2 MSI
+    - name: Download Zabbix Agent 7.0.47 MSI
       win_get_url:
         url: "{{ zabbix_download_url }}"
         dest: "{{ zabbix_msi_path }}"
         force: true
 
-    - name: Install Zabbix Agent 7.2 using msiexec
+    - name: Install Zabbix Agent 7.0.47 using msiexec
       win_command: >
         msiexec.exe /i "{{ zabbix_msi_path }}"
         /qn /norestart
