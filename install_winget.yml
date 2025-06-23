@@ -1,22 +1,16 @@
 ---
-- name: Install Winget (Windows Package Manager) - Auto Download
-  hosts: windows # Переконайтеся, що ця назва відповідає вашій групі Windows у inventory
+- name: Install Winget (Windows Package Manager) - Aggressive Auto Download and Reinstall
+  hosts: windows 
   gather_facts: yes
 
   vars:
-    # URL для останнього стабільного випуску Winget (MSIXBUNDLE) з GitHub.
-    # Залишаємо версію 1.7.10861, як ви просили раніше.
     winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.7.10861/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
     winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
 
-    # URL для фреймворку Microsoft.UI.Xaml.2.8 (x64) з GitHub.
     microsoft_ui_xaml_url: "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx"
     microsoft_ui_xaml_path: "C:\\Windows\\Temp\\Microsoft.UI.Xaml.2.8.x64.appx"
 
-    # *** ОНОВЛЕНО: URL для фреймворку Microsoft.VCLibs.140.00.UWPDesktop ***
-    # *** ВАЖЛИВО: ПЕРЕВІРТЕ ЦЕ ПОСИЛАННЯ! ВОНО ПОВИННО ВКАЗУВАТИ НА .APPX-ФАЙЛ ***
-    # Спробуйте це:
-    microsoft_vclibs_url: "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx" 
+    microsoft_vclibs_url: "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx"
     microsoft_vclibs_path: "C:\\Windows\\Temp\\Microsoft.VCLibs.140.00.UWPDesktop.appx"
 
 
@@ -26,19 +20,23 @@
       register: winget_check
       ignore_errors: true
 
-    - name: Download Winget MSIXBUNDLE if not already installed
+    - name: Ensure target directory exists for downloads
+      win_file:
+        path: "C:\\Windows\\Temp\\"
+        state: directory
+
+    - name: Download Winget MSIXBUNDLE
       win_get_url:
         url: "{{ winget_release_url }}"
         dest: "{{ winget_installer_path }}"
-        force: no
+        force: yes # Завжди завантажувати, щоб уникнути пошкоджень
       when: winget_check.failed
 
-    - name: Download Microsoft.VCLibs.140.00.UWPDesktop framework if needed
-      # Цей крок завантажить необхідну залежність (VCLibs UWP).
+    - name: Download Microsoft.VCLibs.140.00.UWPDesktop framework
       win_get_url:
         url: "{{ microsoft_vclibs_url }}"
         dest: "{{ microsoft_vclibs_path }}"
-        force: no
+        force: yes # Завжди завантажувати
       when: winget_check.failed
     
     - name: Install Microsoft.VCLibs.140.00.UWPDesktop framework
@@ -46,13 +44,14 @@
         Add-AppxPackage -Path "{{ microsoft_vclibs_path }}" -ForceUpdateFromAnyVersion
       args:
         executable: powershell.exe
+      ignore_errors: true # Ігноруємо помилки, якщо пакет вже встановлено або є конфлікт
       when: winget_check.failed
 
-    - name: Download Microsoft.UI.Xaml.2.8 framework if needed
+    - name: Download Microsoft.UI.Xaml.2.8 framework
       win_get_url:
         url: "{{ microsoft_ui_xaml_url }}"
         dest: "{{ microsoft_ui_xaml_path }}"
-        force: no
+        force: yes # Завжди завантажувати
       when: winget_check.failed
     
     - name: Install Microsoft.UI.Xaml.2.8 framework
@@ -60,27 +59,35 @@
         Add-AppxPackage -Path "{{ microsoft_ui_xaml_path }}" -ForceUpdateFromAnyVersion
       args:
         executable: powershell.exe
+      ignore_errors: true # Ігноруємо помилки
       when: winget_check.failed
 
-    - name: Install Winget using PowerShell (Add-AppxPackage)
+    - name: Install Winget using PowerShell (Add-AppxPackage) - Attempt 1
       win_shell: |
         Add-AppxPackage -Path "{{ winget_installer_path }}" -ForceUpdateFromAnyVersion
       args:
         executable: powershell.exe
+      ignore_errors: true # Ігноруємо помилки, щоб спробувати інші методи або перезавантаження
       when: winget_check.failed
 
-    - name: Verify Winget installation by checking version
+    - name: Reboot the Windows machine to finalize Winget installation
+      win_reboot:
+        reboot_timeout: 600 # Чекати до 10 хвилин
+      when: winget_check.failed # Перезавантажувати лише, якщо Winget не був знайдений спочатку
+
+    - name: Verify Winget installation by checking version after reboot
       win_shell: "winget --version"
-      register: winget_version_check
+      register: winget_final_check
       changed_when: false
-      when: winget_check.failed or winget_version_check.rc != 0
+      # Цей крок виконується незалежно від початкової перевірки, щоб точно знати результат після всіх спроб
+      # Ігноруємо помилки, якщо Winget все ще не знайдено, щоб дозволити плейбуку завершитися
+      ignore_errors: true 
 
-    - name: Display Winget version if successfully installed
+    - name: Display Winget final status
       ansible.builtin.debug:
-        msg: "Winget installed successfully. Version: {{ winget_version_check.stdout | default('N/A') }}"
-      when: winget_version_check.rc == 0
-
-    - name: 'Note: Rebooting terminal/session might be required for Winget to be in PATH'
+        msg: "Winget final status after all attempts: {{ winget_final_check.stdout | default(winget_final_check.stderr) | default('N/A') }}"
+      
+    - name: 'Note: If Winget still not recognized, manual investigation on Windows is required'
       ansible.builtin.debug:
-        msg: "Winget has been installed. You might need to close and reopen your PowerShell/CMD session for 'winget' command to be recognized in PATH."
-      when: winget_check.failed
+        msg: "WARNING: If Winget still shows 'not recognized', there is a deeper issue on the Windows machine preventing AppX package registration. Manual troubleshooting is recommended, starting with 'Get-AppPackageLog'."
+      when: winget_final_check.failed
