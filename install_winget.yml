@@ -1,93 +1,70 @@
 ---
-- name: Install Winget (Windows Package Manager) - Aggressive Auto Download and Reinstall
-  hosts: windows 
+- name: Diagnose Winget Installation Issues
+  hosts: windows
   gather_facts: yes
 
-  vars:
-    winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.7.10861/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-    winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
-
-    microsoft_ui_xaml_url: "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx"
-    microsoft_ui_xaml_path: "C:\\Windows\\Temp\\Microsoft.UI.Xaml.2.8.x64.appx"
-
-    microsoft_vclibs_url: "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx"
-    microsoft_vclibs_path: "C:\\Windows\\Temp\\Microsoft.VCLibs.140.00.UWPDesktop.appx"
-
-
   tasks:
-    - name: Check if Winget is already installed and accessible
+    - name: Check if Winget is accessible (Initial check)
       win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
-      register: winget_check
+      register: winget_initial_check
+      ignore_errors: true
+      # Залишимо це завдання, щоб бачити початковий статус
+
+    - name: Get detailed AppxPackage log for recent deployment activities
+      # Цей таск спробує отримати детальний лог останньої операції Add-AppxPackage.
+      # ActivityID може змінюватися, тому ми беремо останній лог.
+      win_shell: |
+        Get-AppxPackage -Name "Microsoft.DesktopAppInstaller" | Select-Object -ExpandProperty InstallLocation | Out-Null # Ensure AppInstaller is visible if installed
+        Get-AppxLog -ActivityID (Get-AppxLog | Select-Object -First 1 -ExpandProperty ActivityID) | Format-List -Force
+      register: appx_log_output
+      ignore_errors: true # Ігноруємо помилки, якщо логи недоступні
+      # Важливо: Ansible виведе цей лог у JSON-форматі, його потрібно буде уважно переглянути.
+
+    - name: Display AppxPackage Diagnostic Log
+      ansible.builtin.debug:
+        msg: "Full AppxPackage Log (look for 'Fail', 'Error', 'HRESULT'):\n{{ appx_log_output.stdout }}"
+      when: appx_log_output.stdout is defined and appx_log_output.stdout | length > 0
+
+    - name: Check if Microsoft.DesktopAppInstaller is installed
+      win_shell: "Get-AppxPackage -Name 'Microsoft.DesktopAppInstaller'"
+      register: appinstaller_package_check
       ignore_errors: true
 
-    - name: Ensure target directory exists for downloads
-      win_file:
-        path: "C:\\Windows\\Temp\\"
-        state: directory
+    - name: Display Microsoft.DesktopAppInstaller package status
+      ansible.builtin.debug:
+        msg: "Microsoft.DesktopAppInstaller status:\n{{ appinstaller_package_check.stdout }}"
+      when: appinstaller_package_check.stdout is defined and appinstaller_package_check.stdout | length > 0
 
-    - name: Download Winget MSIXBUNDLE
-      win_get_url:
-        url: "{{ winget_release_url }}"
-        dest: "{{ winget_installer_path }}"
-        force: yes # Завжди завантажувати, щоб уникнути пошкоджень
-      when: winget_check.failed
+    - name: Check if Microsoft.VCLibs.140.00.UWPDesktop is installed
+      win_shell: "Get-AppxPackage -Name 'Microsoft.VCLibs.140.00.UWPDesktop'"
+      register: vclibs_package_check
+      ignore_errors: true
 
-    - name: Download Microsoft.VCLibs.140.00.UWPDesktop framework
-      win_get_url:
-        url: "{{ microsoft_vclibs_url }}"
-        dest: "{{ microsoft_vclibs_path }}"
-        force: yes # Завжди завантажувати
-      when: winget_check.failed
-    
-    - name: Install Microsoft.VCLibs.140.00.UWPDesktop framework
-      win_shell: |
-        Add-AppxPackage -Path "{{ microsoft_vclibs_path }}" -ForceUpdateFromAnyVersion
-      args:
-        executable: powershell.exe
-      ignore_errors: true # Ігноруємо помилки, якщо пакет вже встановлено або є конфлікт
-      when: winget_check.failed
+    - name: Display Microsoft.VCLibs.140.00.UWPDesktop package status
+      ansible.builtin.debug:
+        msg: "Microsoft.VCLibs.140.00.UWPDesktop status:\n{{ vclibs_package_check.stdout }}"
+      when: vclibs_package_check.stdout is defined and vclibs_package_check.stdout | length > 0
 
-    - name: Download Microsoft.UI.Xaml.2.8 framework
-      win_get_url:
-        url: "{{ microsoft_ui_xaml_url }}"
-        dest: "{{ microsoft_ui_xaml_path }}"
-        force: yes # Завжди завантажувати
-      when: winget_check.failed
-    
-    - name: Install Microsoft.UI.Xaml.2.8 framework
-      win_shell: |
-        Add-AppxPackage -Path "{{ microsoft_ui_xaml_path }}" -ForceUpdateFromAnyVersion
-      args:
-        executable: powershell.exe
-      ignore_errors: true # Ігноруємо помилки
-      when: winget_check.failed
+    - name: Check if Microsoft.UI.Xaml.2.8 is installed
+      win_shell: "Get-AppxPackage -Name 'Microsoft.UI.Xaml.2.8'"
+      register: uixaml_package_check
+      ignore_errors: true
 
-    - name: Install Winget using PowerShell (Add-AppxPackage) - Attempt 1
-      win_shell: |
-        Add-AppxPackage -Path "{{ winget_installer_path }}" -ForceUpdateFromAnyVersion
-      args:
-        executable: powershell.exe
-      ignore_errors: true # Ігноруємо помилки, щоб спробувати інші методи або перезавантаження
-      when: winget_check.failed
+    - name: Display Microsoft.UI.Xaml.2.8 package status
+      ansible.builtin.debug:
+        msg: "Microsoft.UI.Xaml.2.8 status:\n{{ uixaml_package_check.stdout }}"
+      when: uixaml_package_check.stdout is defined and uixaml_package_check.stdout | length > 0
 
-    - name: Reboot the Windows machine to finalize Winget installation
-      win_reboot:
-        reboot_timeout: 600 # Чекати до 10 хвилин
-      when: winget_check.failed # Перезавантажувати лише, якщо Winget не був знайдений спочатку
-
-    - name: Verify Winget installation by checking version after reboot
-      win_shell: "winget --version"
+    - name: Final Winget Accessibility Check
+      win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
       register: winget_final_check
-      changed_when: false
-      # Цей крок виконується незалежно від початкової перевірки, щоб точно знати результат після всіх спроб
-      # Ігноруємо помилки, якщо Winget все ще не знайдено, щоб дозволити плейбуку завершитися
-      ignore_errors: true 
+      ignore_errors: true
 
-    - name: Display Winget final status
+    - name: Report final Winget status
       ansible.builtin.debug:
-        msg: "Winget final status after all attempts: {{ winget_final_check.stdout | default(winget_final_check.stderr) | default('N/A') }}"
-      
-    - name: 'Note: If Winget still not recognized, manual investigation on Windows is required'
+        msg: "Final Winget status: {{ 'Accessible' if winget_final_check.rc == 0 else 'Not recognized in PATH' }}"
+
+    - name: 'Important Note: Manual investigation might still be necessary'
       ansible.builtin.debug:
-        msg: "WARNING: If Winget still shows 'not recognized', there is a deeper issue on the Windows machine preventing AppX package registration. Manual troubleshooting is recommended, starting with 'Get-AppPackageLog'."
-      when: winget_final_check.failed
+        msg: "If Winget is still not recognized, please carefully review the 'Full AppxPackage Log' output above for specific error codes or messages. This indicates a deeper Windows OS issue."
+      when: winget_final_check.rc != 0
