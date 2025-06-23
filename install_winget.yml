@@ -1,6 +1,6 @@
 ---
 - name: Install Winget (Windows Package Manager)
-  hosts: windows # Переконайтеся, що це відповідає назві вашої групи Windows у inventory
+  hosts: windows # Переконайтеся, що ця назва відповідає вашій групі Windows у inventory
   gather_facts: yes
 
   vars:
@@ -8,52 +8,52 @@
     # ВАЖЛИВО: Завжди перевіряйте останній стабільний випуск тут:
     # https://github.com/microsoft/winget-cli/releases
     # Шукайте файл з розширенням .msixbundle (наприклад, Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle)
-    # Зверніть увагу, що номер версії в URL (наприклад, v1.7.10811) та ім'я файлу можуть змінюватися.
+    # Зверніть увагу, що номер версії в URL (наприклад, v1.7.10811) та ім'я файлу можуть змінюватися з новими випусками.
     winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.7.10811/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
     winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
 
   tasks:
     - name: Check if Winget is already installed and accessible
       # Використовуємо Get-Command для перевірки наявності 'winget.exe' у PATH.
-      # ignore_errors дозволяє продовжувати роботу, якщо команда не знайдена.
+      # 'ignore_errors: true' дозволяє Ansible продовжити роботу, навіть якщо команда поверне помилку (тобто Winget не знайдено).
       win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
       register: winget_check
       ignore_errors: true
 
     - name: Download Winget MSIXBUNDLE if not already installed
-      # Завантажуємо інсталятор Winget лише в тому випадку, якщо він ще не встановлений.
-      # force: no запобігає повторному завантаженню, якщо файл вже існує.
+      # Завантажуємо інсталятор Winget з GitHub.
+      # 'force: no' запобігає повторному завантаженню, якщо файл вже існує в місці призначення.
       win_get_url:
         url: "{{ winget_release_url }}"
         dest: "{{ winget_installer_path }}"
         force: no
-      when: winget_check.failed
+      when: winget_check.failed # Цей крок виконується лише, якщо Winget не було знайдено на попередньому кроці.
 
     - name: Install Winget using PowerShell (Add-AppxPackage)
       # Використовуємо Add-AppxPackage для встановлення пакета MSIXBUNDLE.
-      # -ForceUpdateFromAnyVersion дозволяє оновити існуючу версію.
+      # '-ForceUpdateFromAnyVersion' дозволяє встановити або оновити пакет, якщо він вже існує.
       win_shell: |
         Add-AppxPackage -Path "{{ winget_installer_path }}" -ForceUpdateFromAnyVersion
       args:
         executable: powershell.exe
-      when: winget_check.failed # Встановлювати, лише якщо winget не було знайдено
+      when: winget_check.failed # Цей крок виконується лише, якщо Winget не було знайдено.
 
     - name: Verify Winget installation by checking version
-      # Перевіряємо встановлення, отримуючи версію Winget.
+      # Повторно перевіряємо встановлення Winget, намагаючись отримати його версію.
       win_shell: "winget --version"
       register: winget_version_check
-      changed_when: false # Ця команда не змінює стан системи
-      # Виконуємо, якщо попередній check був невдалим або якщо командний рядок Winget повернув помилку (наприклад, не знайдено).
+      changed_when: false # Ця команда не змінює стан системи.
+      # Виконуємо, якщо Winget був щойно встановлений, або якщо попередня перевірка була невдалою.
       when: winget_check.failed or winget_version_check.rc != 0
 
     - name: Display Winget version if successfully installed
-      # Виводимо версію Winget, якщо перевірка пройшла успішно.
+      # Виводимо повідомлення про успішне встановлення та версію Winget.
       ansible.builtin.debug:
         msg: "Winget installed successfully. Version: {{ winget_version_check.stdout | default('N/A') }}"
       when: winget_version_check.rc == 0
 
-    - name: 'Note: Rebooting terminal/session might be required for Winget to be in PATH' # <-- Виправлено синтаксичну помилку тут
-      # Повідомлення для користувача про необхідність перезапуску сеансу.
+    - name: 'Note: Rebooting terminal/session might be required for Winget to be in PATH' # Оновлено для коректного синтаксису YAML
+      # Нагадування користувачеві про те, що для розпізнавання команди 'winget' у PATH може знадобитися перезапуск сесії.
       ansible.builtin.debug:
         msg: "Winget has been installed. You might need to close and reopen your PowerShell/CMD session for 'winget' command to be recognized in PATH."
-      when: winget_check.failed # Показуємо це повідомлення, якщо Winget був щойно встановлений
+      when: winget_check.failed # Показуємо це повідомлення, якщо Winget був щойно встановлений.
