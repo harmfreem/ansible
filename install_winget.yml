@@ -1,131 +1,65 @@
 ---
-- name: Final Attempts to Install and Diagnose Winget
+- name: Install Winget with all dependencies on Windows Server 2019
   hosts: windows
-  gather_facts: yes
-
+  gather_facts: false
   vars:
-    winget_release_url: "https://github.com/microsoft/winget-cli/releases/download/v1.7.10861/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-    winget_installer_path: "C:\\Windows\\Temp\\Microsoft.DesktopAppInstaller.msixbundle"
-
-    microsoft_ui_xaml_url: "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx"
-    microsoft_ui_xaml_path: "C:\\Windows\\Temp\\Microsoft.UI.Xaml.2.8.x64.appx"
-
-    microsoft_vclibs_url: "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx"
-    microsoft_vclibs_path: "C:\\Windows\\Temp\\Microsoft.VCLibs.140.00.UWPDesktop.appx"
-
+    temp_dir: "C:\\Temp\\winget"
+    vclibs_url: "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx"
+    xaml_nuget_url: "https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.7.3"
+    winget_url: "https://aka.ms/getwinget"
 
   tasks:
-    - name: Check if Winget is already accessible (Initial check)
-      win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
-      register: winget_initial_check
-      ignore_errors: true
 
-    - name: Ensure target directory exists for downloads
+    - name: Create temp folder
       win_file:
-        path: "C:\\Windows\\Temp\\"
+        path: "{{ temp_dir }}"
         state: directory
 
-    - name: Download Winget MSIXBUNDLE
+    - name: Download Microsoft.VCLibs.x64
       win_get_url:
-        url: "{{ winget_release_url }}"
-        dest: "{{ winget_installer_path }}"
-        force: yes
-      when: winget_initial_check.failed
+        url: "{{ vclibs_url }}"
+        dest: "{{ temp_dir }}\\Microsoft.VCLibs.x64.14.00.Desktop.appx"
 
-    - name: Download Microsoft.VCLibs.140.00.UWPDesktop framework
+    - name: Download Microsoft.UI.Xaml nupkg
       win_get_url:
-        url: "{{ microsoft_vclibs_url }}"
-        dest: "{{ microsoft_vclibs_path }}"
-        force: yes
-      when: winget_initial_check.failed
-    
-    - name: Install Microsoft.VCLibs.140.00.UWPDesktop framework
-      win_shell: |
-        Add-AppxPackage -Path "{{ microsoft_vclibs_path }}" -ForceUpdateFromAnyVersion
-      args:
-        executable: powershell.exe
-      ignore_errors: true
-      when: winget_initial_check.failed
+        url: "{{ xaml_nuget_url }}"
+        dest: "{{ temp_dir }}\\Microsoft.UI.Xaml.2.7.3.nupkg"
 
-    - name: Download Microsoft.UI.Xaml.2.8 framework
+    - name: Unzip Microsoft.UI.Xaml nupkg
+      win_unzip:
+        src: "{{ temp_dir }}\\Microsoft.UI.Xaml.2.7.3.nupkg"
+        dest: "{{ temp_dir }}\\xaml"
+        delete_archive: false
+
+    - name: Find .appx inside extracted XAML package
+      win_find:
+        paths: "{{ temp_dir }}\\xaml"
+        patterns: "*.appx"
+      register: xaml_appx_files
+
+    - name: Set UI.Xaml appx path
+      set_fact:
+        xaml_appx_path: "{{ xaml_appx_files.files[0].path }}"
+
+    - name: Download App Installer (winget)
       win_get_url:
-        url: "{{ microsoft_ui_xaml_url }}"
-        dest: "{{ microsoft_ui_xaml_path }}"
-        force: yes
-      when: winget_initial_check.failed
-    
-    - name: Install Microsoft.UI.Xaml.2.8 framework
-      win_shell: |
-        Add-AppxPackage -Path "{{ microsoft_ui_xaml_path }}" -ForceUpdateFromAnyVersion
-      args:
-        executable: powershell.exe
-      ignore_errors: true
-      when: winget_initial_check.failed
+        url: "{{ winget_url }}"
+        dest: "{{ temp_dir }}\\AppInstaller.msixbundle"
 
-    # --- НОВІ КРОКИ ДЛЯ ДІАГНОСТИКИ/ВИПРАВЛЕННЯ ---
+    - name: Install Microsoft.VCLibs.x64
+      win_command: powershell.exe -ExecutionPolicy Bypass -Command "Add-AppxPackage -Path '{{ temp_dir }}\\Microsoft.VCLibs.x64.14.00.Desktop.appx'"
 
-    - name: Run DISM cleanup and restore health
-      ansible.windows.win_shell: |
-        DISM /Online /Cleanup-Image /RestoreHealth
-      args:
-        executable: cmd.exe
-      register: dism_result
-      ignore_errors: true
-      when: winget_initial_check.failed # Запускаємо, якщо Winget ще не працює
+    - name: Install Microsoft.UI.Xaml
+      win_command: powershell.exe -ExecutionPolicy Bypass -Command "Add-AppxPackage -Path '{{ xaml_appx_path }}'"
 
-    - name: Display DISM result
-      ansible.builtin.debug:
-        msg: "DISM output: {{ dism_result.stdout | default('N/A') }}\n{{ dism_result.stderr | default('N/A') }}"
-      when: dism_result.stdout is defined or dism_result.stderr is defined
+    - name: Install winget (App Installer)
+      win_command: powershell.exe -ExecutionPolicy Bypass -Command "Add-AppxPackage -Path '{{ temp_dir }}\\AppInstaller.msixbundle'"
 
-    - name: Run System File Checker (SFC)
-      ansible.windows.win_shell: |
-        sfc /scannow
-      args:
-        executable: cmd.exe
-      register: sfc_result
-      ignore_errors: true
-      when: winget_initial_check.failed # Запускаємо, якщо Winget ще не працює
-
-    - name: Display SFC result
-      ansible.builtin.debug:
-        msg: "SFC output: {{ sfc_result.stdout | default('N/A') }}\n{{ sfc_result.stderr | default('N/A') }}"
-      when: sfc_result.stdout is defined or sfc_result.stderr is defined
-
-    - name: Attempt to remove existing Microsoft.DesktopAppInstaller package (if present)
-      win_shell: |
-        Get-AppxPackage -Name "Microsoft.DesktopAppInstaller" | Remove-AppxPackage -ErrorAction SilentlyContinue
-      args:
-        executable: powershell.exe
-      ignore_errors: true # Ігноруємо помилки, якщо пакет не знайдено або не може бути видалений
-
-    - name: Perform final Winget installation attempt
-      win_shell: |
-        Add-AppxPackage -Path "{{ winget_installer_path }}" -ForceUpdateFromAnyVersion
-      args:
-        executable: powershell.exe
-      register: final_winget_install_attempt
-      ignore_errors: true # Продовжуємо ігнорувати помилки для завершення плейбука
-      when: winget_initial_check.failed
-
-    - name: Display final Winget installation attempt result
-      ansible.builtin.debug:
-        msg: "Final Winget installation attempt output: {{ final_winget_install_attempt.stdout | default('N/A') }}\n{{ final_winget_install_attempt.stderr | default('N/A') }}"
-      when: final_winget_install_attempt.stdout is defined or final_winget_install_attempt.stderr is defined
-
-    # --- ЗАВЕРШАЛЬНІ ПЕРЕВІРКИ ---
-
-    - name: Verify Winget installation by checking version after all attempts (without reboot)
-      win_shell: "Get-Command winget.exe -ErrorAction SilentlyContinue"
-      register: winget_final_check
-      changed_when: false
+    - name: Check winget version
+      win_command: winget --version
+      register: winget_version
       ignore_errors: true
 
-    - name: Report final Winget status
-      ansible.builtin.debug:
-        msg: "Final Winget status: {{ 'Accessible' if winget_final_check.rc == 0 else 'Not recognized in PATH' }}"
-
-    - name: 'Important Note: Manual investigation or reboot might still be necessary'
-      ansible.builtin.debug:
-        msg: "WARNING: If Winget still shows 'not recognized', there is a deeper issue on the Windows machine preventing AppX package registration, or a reboot is required for PATH changes to apply. Manual troubleshooting (including a reboot) is highly recommended."
-      when: winget_final_check.rc != 0
+    - name: Show winget version
+      debug:
+        msg: "{{ winget_version.stdout | default('Winget installation failed') }}"
