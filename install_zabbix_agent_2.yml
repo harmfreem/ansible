@@ -1,76 +1,39 @@
 ---
-- name: Install Zabbix Agent 7.0.47 LTS on Windows without reboot
+- name: Install and configure Zabbix Agent 7.0.15 on Windows
   hosts: windows
   gather_facts: yes
+
   vars:
     zabbix_server: "159.69.187.239"
-    # ВАЖЛИВО: ПЕРЕВІРТЕ ЦЮ URL-АДРЕСУ ТА ВЕРСІЮ НА ОФІЦІЙНОМУ САЙТІ ZABBIX ДЛЯ 7.0 LTS WINDOWS AMD64 OpenSSL.
-    # Зазвичай, LTS-версії мають базову версію (наприклад, 7.0.0) у шляху завантаження,
-    # а патчі є кумулятивними оновленнями в межах цього ж файлу.
-    zabbix_agent_version_in_url: "7.0.0" # <<-- ОНОВІТЬ ЦЕ ПІСЛЯ ПЕРЕВІРКИ НА САЙТІ ZABBIX
-    zabbix_download_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.0/{{ zabbix_agent_version_in_url }}/zabbix_agent-{{ zabbix_agent_version_in_url }}-windows-amd64-openssl.msi"
-    zabbix_msi_path: "C:\\Windows\\Temp\\zabbix_agent.msi"
-    zabbix_log: "C:\\Windows\\Temp\\zabbix_install.log"
+    zabbix_msi_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.0/7.0.15/zabbix_agent-7.0.15-windows-amd64-openssl.msi"
+    zabbix_msi_path: "C:\\Temp\\zabbix_agent-7.0.15.msi"
+    zabbix_conf_path: "C:\\Program Files\\Zabbix Agent\\zabbix_agentd.conf"
 
   tasks:
-    - name: Kill any existing zabbix_agentd.exe processes
-      win_shell: |
-        $proc = Get-Process -Name zabbix_agentd -ErrorAction SilentlyContinue
-        if ($proc) { $proc | Stop-Process -Force }
-      ignore_errors: true
 
-    - name: Remove old Zabbix Agent service if exists
-      win_shell: |
-        if (Get-Service -Name "Zabbix Agent" -ErrorAction SilentlyContinue) {
-          Stop-Service -Name "Zabbix Agent" -Force
-          sc.exe delete "Zabbix Agent"
-        }
-      ignore_errors: true
-
-    - name: Wait for services to fully stop and file handles to release
-      ansible.windows.win_wait_for:
-        timeout: 10 # Зачекайте до 10 секунд, щоб переконатися, що блокування файлів знято
-
-    - name: Delete old Zabbix installation folder (if exists)
+    - name: Ensure Temp directory exists
       win_file:
-        path: "C:\\Program Files\\Zabbix Agent"
-        state: absent
-      ignore_errors: true
+        path: "C:\\Temp"
+        state: directory
 
-    - name: Clean old Zabbix registry keys (optional)
-      win_regedit:
-        path: 'SOFTWARE\Zabbix SIA' # ВИПРАВЛЕНО: без HKLM\
-        state: absent
-      ignore_errors: true
-
-    - name: Download Zabbix Agent MSI
+    - name: Download Zabbix Agent 7.0.15 MSI
       win_get_url:
-        url: "{{ zabbix_download_url }}"
+        url: "{{ zabbix_msi_url }}"
         dest: "{{ zabbix_msi_path }}"
-        force: true
+        force: no
 
-    - name: Install Zabbix Agent using msiexec
-      win_command: >
-        msiexec.exe /i "{{ zabbix_msi_path }}"
-        /qn /norestart
-        SERVER="{{ zabbix_server }}"
-        SERVERACTIVE="{{ zabbix_server }}"
-        HOSTNAME="{{ ansible_hostname }}"
-        DEBUGLEVEL=3
-        ALLOWKEY="system.run[*]"
-        /L*V "{{ zabbix_log }}"
-
-    - name: Open port 10050 for Zabbix Agent in Windows Firewall
-      win_firewall_rule:
-        name: "Zabbix Agent 10050"
-        localport: 10050
-        protocol: tcp
-        action: allow
-        direction: in
+    - name: Install Zabbix Agent 7.0.15
+      win_package:
+        path: "{{ zabbix_msi_path }}"
         state: present
-        enabled: yes
+        arguments: /quiet
 
-    - name: Ensure Zabbix Agent service is running and enabled
+    - name: Configure zabbix_agentd.conf
+      win_template:
+        src: zabbix_agentd.conf.j2
+        dest: "{{ zabbix_conf_path }}"
+
+    - name: Ensure Zabbix Agent service is started
       win_service:
         name: "Zabbix Agent"
         state: started
