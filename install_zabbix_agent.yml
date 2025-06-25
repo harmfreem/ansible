@@ -1,38 +1,38 @@
 ---
-- name: Install and configure Zabbix Agent via winget
+- name: Install and configure Zabbix Agent 2 via winget
   hosts: zabbix
   gather_facts: yes
 
   vars:
-    zabbix_conf_path: "C:\\Program Files\\Zabbix Agent\\zabbix_agentd.conf"
+    zabbix_conf_path: "C:\\Program Files\\Zabbix Agent 2\\zabbix_agent2.conf"
     zabbix_server: "159.69.187.239"
 
   tasks:
 
-    - name: Install Zabbix Agent using winget
+    - name: Install Zabbix Agent 2 using winget
       win_command: >
-        winget install --id=Zabbix.ZabbixAgent
+        winget install --id=Zabbix.Agent.2
         --exact
         --silent
         --accept-package-agreements
         --accept-source-agreements
       args:
-        creates: "C:\\Program Files\\Zabbix Agent\\zabbix_agentd.exe"
+        creates: "C:\\Program Files\\Zabbix Agent 2\\zabbix_agent2.exe"
 
-    - name: Generate Zabbix agent configuration
+    - name: Generate Zabbix Agent 2 configuration
       win_template:
-        src: zabbix_agentd.conf.j2
+        src: zabbix_agent2.conf.j2
         dest: "{{ zabbix_conf_path }}"
-      notify: Restart Zabbix Agent
+      notify: Restart Zabbix Agent 2
 
-    - name: Ensure Zabbix Agent service is started
+    - name: Ensure Zabbix Agent 2 service is started
       win_service:
-        name: "Zabbix Agent"
+        name: "Zabbix Agent 2"
         start_mode: auto
         state: started
 
   handlers:
-    - name: Restart Zabbix Agent
+    - name: Restart Zabbix Agent 2
       win_service:
-        name: "Zabbix Agent"
+        name: "Zabbix Agent 2"
         state: restarted
