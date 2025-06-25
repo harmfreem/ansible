@@ -21,7 +21,7 @@
 
     - name: Generate Zabbix Agent 2 configuration
       win_template:
-        src: zabbix_agent2.conf.j2
+        src: zabbix_agent.conf.j2
         dest: "{{ zabbix_conf_path }}"
       notify: Restart Zabbix Agent 2
 
