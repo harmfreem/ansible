@@ -1,40 +1,38 @@
 ---
-- name: Install and configure Zabbix Agent 7.0.15 on Windows
-  hosts: windows
+- name: Install and configure Zabbix Agent via winget
+  hosts: zabbix
   gather_facts: yes
 
   vars:
-    zabbix_server: "159.69.187.239"
-    zabbix_msi_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.0/7.0.15/zabbix_agent-7.0.15-windows-amd64-openssl.msi"
-    zabbix_msi_path: "C:\\Temp\\zabbix_agent-7.0.15.msi"
     zabbix_conf_path: "C:\\Program Files\\Zabbix Agent\\zabbix_agentd.conf"
+    zabbix_server: "159.69.187.239"
 
   tasks:
 
-    - name: Ensure Temp directory exists
-      win_file:
-        path: "C:\\Temp"
-        state: directory
+    - name: Install Zabbix Agent using winget
+      win_command: >
+        winget install --id=Zabbix.ZabbixAgent
+        --exact
+        --silent
+        --accept-package-agreements
+        --accept-source-agreements
+      args:
+        creates: "C:\\Program Files\\Zabbix Agent\\zabbix_agentd.exe"
 
-    - name: Download Zabbix Agent 7.0.15 MSI
-      win_get_url:
-        url: "{{ zabbix_msi_url }}"
-        dest: "{{ zabbix_msi_path }}"
-        force: no
-
-    - name: Install Zabbix Agent 7.0.15
-      win_package:
-        path: "{{ zabbix_msi_path }}"
-        state: present
-        arguments: /quiet
-
-    - name: Configure zabbix_agentd.conf
+    - name: Generate Zabbix agent configuration
       win_template:
         src: zabbix_agentd.conf.j2
         dest: "{{ zabbix_conf_path }}"
+      notify: Restart Zabbix Agent
 
     - name: Ensure Zabbix Agent service is started
       win_service:
         name: "Zabbix Agent"
-        state: started
         start_mode: auto
+        state: started
+
+  handlers:
+    - name: Restart Zabbix Agent
+      win_service:
+        name: "Zabbix Agent"
+        state: restarted
