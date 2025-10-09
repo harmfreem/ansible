@@ -6,6 +6,7 @@
     - name: Run full Defender scan via PowerShell
       win_shell: Start-MpScan -ScanType Full
       register: scan_result
+      ignore_errors: yes  
 
     - name: Show scan output
       debug:
