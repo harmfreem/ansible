@@ -4,7 +4,7 @@
   gather_facts: no
   tasks:
     - name: Run full Defender scan via PowerShell
-      win_shell: Start-MpScan -ScanType FullScan
+      win_shell: Start-MpScan -ScanType Full
       register: scan_result
 
     - name: Show scan output
