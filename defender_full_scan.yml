@@ -4,10 +4,6 @@
   gather_facts: no
   tasks:
     - name: Run full Defender scan via PowerShell
-      win_shell: Start-MpScan -ScanType Full
+      win_shell: Start-MpScan -ScanType FullScan
       register: scan_result
-      ignore_errors: yes  
-
-    - name: Show scan output
-      debug:
-        var: scan_result.stdout
+     
