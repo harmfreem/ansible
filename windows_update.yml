@@ -1,49 +1,99 @@
 ---
-- name: Windows Update without reboot
+- name: Windows Update без автоматичного перезавантаження
   hosts: windows
   gather_facts: no
- 
+  # Якщо потрібно підвищити права:
+  # become: yes
+  # become_method: runas
+  # become_user: SYSTEM
+
+  vars:
+    win_updates_retries: 1
+    win_updates_delay: 30
 
   tasks:
-    - name: Ensure Windows Update policy allows installation
+    - name: Забезпечити політику оновлень Windows (AUOptions)
       win_regedit:
-        # ВИПРАВЛЕНО: Використовуємо hive (вулик) та key (ключ) окремо,
-        # щоб уникнути помилок синтаксису шляху PowerShell.
-        hive: HKLM
-        key: SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU
+        path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
         name: AUOptions
-        # data: 4 означає "Автоматично завантажувати і планувати встановлення"
         data: 4
         type: dword
         state: present
 
-    - name: Restart Windows Update service
+    - name: Зупинити служби wuauserv і BITS для чистого рестарту
       win_service:
-        name: wuauserv
-        state: restarted
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - wuauserv
+        - bits
 
-    - name: Search for available updates
-      win_updates:
+    - name: Запустити служби BITS і wuauserv
+      win_service:
+        name: "{{ item }}"
+        state: started
+      loop:
+        - bits
+        - wuauserv
+
+    - name: Пошук доступних оновлень
+      ansible.windows.win_updates:
         state: searched
       register: update_search
+      retries: "{{ win_updates_retries }}"
+      delay: "{{ win_updates_delay }}"
+      until: update_search is succeeded
 
-    - name: Show available updates
+    - name: Показати знайдені оновлення
       debug:
-        var: update_search.updates
+        msg: |
+          Host {{ inventory_hostname }}: знайдено {{ update_search.updates | length }} оновл(е/ень).
 
-    - name: Install all available updates (no reboot)
-      win_updates:
-        category_names:
-          - SecurityUpdates
-          - CriticalUpdates
-          - UpdateRollups
-        state: installed
-        # ЦЕЙ ПАРАМЕТР ЗАПОБІГАЄ АВТОМАТИЧНОМУ ПЕРЕЗАВАНТАЖЕННЮ
-        reboot: no
-      register: update_install
+    - name: Побудувати список KB з результатів пошуку
+      set_fact:
+        kb_list: "{{ (update_search.updates | map(attribute='kb') | list) | flatten | map('string') | list | unique }}"
+      when: update_search.updates is defined
 
-    - name: Show installation summary
+    - name: Показати KB для інсталяції
       debug:
-        msg: >
-          Installed {{ update_install.installed_update_count }} updates.
-          Reboot required: {{ update_install.reboot_required }}
+        msg: "KB для інсталяції: {{ kb_list | default([]) }}"
+      when: kb_list is defined
+
+    - name: Встановити знайдені KB або за категоріями
+      block:
+        - name: Інсталювати конкретні KB (якщо знайдено)
+          ansible.windows.win_updates:
+            state: installed
+            accept_list: "{{ kb_list }}"
+            reboot: no
+          register: update_install
+          when: kb_list | length > 0
+
+        - name: Інсталювати за категоріями (якщо KB не знайдено)
+          ansible.windows.win_updates:
+            state: installed
+            category_names:
+              - SecurityUpdates
+              - CriticalUpdates
+              - UpdateRollups
+            reboot: no
+          register: update_install
+          when: kb_list is not defined or (kb_list | length == 0)
+
+      rescue:
+        - name: Лог — установка оновлень не вдалася
+          debug:
+            msg: "Помилка при інсталяції оновлень на {{ inventory_hostname }}"
+
+    - name: Показати підсумок установки
+      debug:
+        msg: |
+          Host {{ inventory_hostname }}:
+          Встановлено оновлень: {{ update_install.installed_update_count | default(0) }}.
+          Потрібне перезавантаження: {{ update_install.reboot_required | default(false) }}.
+          Деталі оновлень: {{ update_install.updates | default([]) }}
+
+    - name: Повідомлення про необхідність перезавантаження
+      debug:
+        msg: "Увага: на {{ inventory_hostname }} потрібне перезавантаження для завершення оновлень. Плануйте перезавантаження після вікна обслуговування."
+      when: update_install.reboot_required | default(false)
