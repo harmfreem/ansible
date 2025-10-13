@@ -2,7 +2,7 @@
 - name: Windows Update without reboot
   hosts: windows
   gather_facts: no
-  become: yes
+ 
 
   tasks:
     - name: Ensure Windows Update policy allows installation
