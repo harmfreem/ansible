@@ -7,10 +7,12 @@
   tasks:
     - name: Ensure Windows Update policy allows installation
       win_regedit:
-        # ВИПРАВЛЕНО: Використовуємо hive (вулик) та key (ключ) окремо
+        # ВИПРАВЛЕНО: Використовуємо hive (вулик) та key (ключ) окремо,
+        # щоб уникнути помилок синтаксису шляху PowerShell.
         hive: HKLM
         key: SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU
         name: AUOptions
+        # data: 4 означає "Автоматично завантажувати і планувати встановлення"
         data: 4
         type: dword
         state: present
@@ -36,6 +38,7 @@
           - CriticalUpdates
           - UpdateRollups
         state: installed
+        # ЦЕЙ ПАРАМЕТР ЗАПОБІГАЄ АВТОМАТИЧНОМУ ПЕРЕЗАВАНТАЖЕННЮ
         reboot: no
       register: update_install
 
