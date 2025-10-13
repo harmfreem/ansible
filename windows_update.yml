@@ -7,8 +7,9 @@
   tasks:
     - name: Ensure Windows Update policy allows installation
       win_regedit:
-        # Шлях виправлено: використано прямі скісні риски (/)
-        path: HKLM:/SOFTWARE/Policies/Microsoft/Windows/WindowsUpdate/AU
+        # ВИПРАВЛЕНО: Використовуємо hive (вулик) та key (ключ) окремо
+        hive: HKLM
+        key: SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU
         name: AUOptions
         data: 4
         type: dword
