@@ -1,0 +1,15 @@
+---
+- name: Оновлення Windows через Ansible
+  hosts: windows
+  gather_facts: no
+  become: yes
+
+  tasks:
+    - name: Пошук та встановлення всіх доступних оновлень
+      win_updates:
+        category_names:
+          - SecurityUpdates
+          - CriticalUpdates
+          - UpdateRollups
+        state: installed
+        reboot: yes
