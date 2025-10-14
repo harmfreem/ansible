@@ -12,6 +12,7 @@
     win_updates_delay: 30
 
   tasks:
+
     - name: Забезпечити політику оновлень Windows (AUOptions)
       win_regedit:
         path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
@@ -48,19 +49,32 @@
       debug:
         msg: |
           Host {{ inventory_hostname }}: знайдено {{ update_search.updates | length }} оновл(е/ень).
+          {{ update_search.updates | join('\n') }}
 
     - name: Побудувати список KB з результатів пошуку
       set_fact:
-        kb_list: "{{ (update_search.updates | map(attribute='kb') | list) | flatten | map('string') | list | unique }}"
+        kb_list: >-
+          {{
+            update_search.updates
+            | map('regex_findall', 'KB\\d+')
+            | flatten
+            | unique
+          }}
       when: update_search.updates is defined
 
     - name: Показати KB для інсталяції
       debug:
-        msg: "KB для інсталяції: {{ kb_list | default([]) }}"
-      when: kb_list is defined
+        msg: >-
+          {% if kb_list | length > 0 %}
+          KB для інсталяції: {{ kb_list | join(', ') }}
+          {% else %}
+          Не знайдено конкретних KB для інсталяції, буде встановлено за категоріями.
+          {% endif %}
+      when: update_search.updates is defined
 
     - name: Встановити знайдені KB або за категоріями
       block:
+
         - name: Інсталювати конкретні KB (якщо знайдено)
           ansible.windows.win_updates:
             state: installed
@@ -78,7 +92,7 @@
               - UpdateRollups
             reboot: no
           register: update_install
-          when: kb_list is not defined or (kb_list | length == 0)
+          when: kb_list | length == 0
 
       rescue:
         - name: Лог — установка оновлень не вдалася
