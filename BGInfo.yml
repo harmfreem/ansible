@@ -9,7 +9,7 @@
         - "C:/ProgramData/Microsoft/Windows/Start Menu/Programs/Startup/Bginfo.lnk"
         - "C:/Users/{{ ansible_user_id }}/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/Bginfo.lnk"
 
-    - name: Видалення записів Bginfo з реєстру (Run keys) через PowerShell
+    - name: Видалення записів Bginfo з реєстру
       win_shell: |
         $paths = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run")
         foreach ($path in $paths) {
@@ -23,12 +23,22 @@
         path: C:\Sysinternals
         state: directory
 
-    - name: Завантаження та розпакування BGInfo
+    - name: Завантаження архіву BGInfo
+      win_get_url:
+        url: https://download.sysinternals.com/files/BGInfo.zip
+        dest: C:\Sysinternals\BGInfo.zip
+
+    - name: Розпакування BGInfo
       win_unzip:
-        src: https://download.sysinternals.com/files/BGInfo.zip
+        src: C:\Sysinternals\BGInfo.zip
         dest: C:\Sysinternals
         remote_src: yes
         creates: C:\Sysinternals\Bginfo64.exe
+
+    - name: Видалення завантаженого ZIP
+      win_file:
+        path: C:\Sysinternals\BGInfo.zip
+        state: absent
 
     - name: Завантаження файлу конфігурації .bgi
       win_get_url:
