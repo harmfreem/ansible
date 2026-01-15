@@ -4,13 +4,15 @@
   gather_facts: no
 
   tasks:
-    - name: Update all installed apps (auto-yes)
+    - name: Update Winget sources and all packages
       ansible.windows.win_shell: |
+        winget source update
         winget upgrade --all --accept-package-agreements --accept-source-agreements --silent
       register: winget_update
       failed_when: 
         - winget_update.rc != 0 
         - "'No installed package found' not in winget_update.stdout"
+        - "'InstallerFailedWithCode' not in winget_update.stdout"
       changed_when: 
         - "'Installing' in winget_update.stdout or 'Successfully installed' in winget_update.stdout"
 
