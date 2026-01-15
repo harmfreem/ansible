@@ -1,0 +1,51 @@
+- name: Налаштування BGInfo
+  hosts: all
+  tasks:
+    - name: Видалення старих ярликів автозапуску (User & All Users)
+      win_file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "C:/ProgramData/Microsoft/Windows/Start Menu/Programs/Startup/Bginfo.lnk"
+        - "{{ ansible_env.APPDATA }}/Microsoft/Windows/Start Menu/Programs/Startup/Bginfo.lnk"
+
+    - name: Видалення записів у реєстрі (Run keys)
+      win_regedit:
+        path: "{{ item }}"
+        name: "{{ entry.name }}"
+        state: absent
+      loop:
+        - "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+        - "HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+      loop_control:
+        loop_var: path_item
+      # Примітка: Ansible win_regedit потребує точного імені ключа. 
+      # Для повного очищення за маскою краще використовувати win_shell, якщо імена ключів варіюються.
+
+    - name: Створення директорії C:\Sysinternals
+      win_file:
+        path: C:\Sysinternals
+        state: directory
+
+    - name: Завантаження та розпакування BGInfo
+      win_unzip:
+        src: https://download.sysinternals.com/files/BGInfo.zip
+        dest: C:\Sysinternals
+        remote_src: yes
+        creates: C:\Sysinternals\Bginfo64.exe
+
+    - name: Завантаження файлу конфігурації .bgi
+      win_get_url:
+        url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
+        dest: C:\Sysinternals\micros.bgi
+        force: yes
+
+    - name: Створення ярлика автозапуску з /nolicprompt
+      win_shortcut:
+        src: C:\Sysinternals\Bginfo64.exe
+        dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
+        arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
+        directory: C:\Sysinternals
+
+    - name: Запуск BGInfo зараз
+      win_command: 'C:\Sysinternals\Bginfo64.exe "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
