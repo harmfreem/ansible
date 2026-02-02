@@ -1,4 +1,3 @@
----
 - name: Update all apps via Winget
   hosts: all
   gather_facts: no
@@ -9,12 +8,11 @@
         winget source update
         winget upgrade --all --accept-package-agreements --accept-source-agreements --silent
       register: winget_update
-      failed_when: 
-        - winget_update.rc != 0 
-        - "'No installed package found' not in winget_update.stdout"
-        - "'InstallerFailedWithCode' not in winget_update.stdout"
-      changed_when: 
-        - "'Installing' in winget_update.stdout or 'Successfully installed' in winget_update.stdout"
+      failed_when:
+        - winget_update.rc != 0
+      changed_when:
+        - "'upgrades' in winget_update.stdout"
+        - "'0 upgrades' not in winget_update.stdout"
 
     - name: Show update output
       ansible.builtin.debug:
