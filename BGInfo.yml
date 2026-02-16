@@ -1,7 +1,12 @@
 - name: Налаштування BGInfo
   hosts: all
   tasks:
-    - name: Примусове видалення старої папки (якщо вона є)
+    - name: Примусове завершення процесів BGInfo
+      win_shell: |
+        Stop-Process -Name "Bginfo", "Bginfo64" -Force -ErrorAction SilentlyContinue
+      ignore_errors: yes
+
+    - name: Примусове видалення старої папки
       win_file:
         path: C:\Sysinternals
         state: absent
@@ -17,13 +22,6 @@
         url: https://download.sysinternals.com/files/BGInfo.zip
         dest: C:\Sysinternals\BGInfo.zip
         force: yes
-      register: dl_zip
-      ignore_errors: yes
-
-    - name: Резервний метод завантаження через PowerShell
-      win_shell: |
-        Invoke-WebRequest -Uri "https://download.sysinternals.com/files/BGInfo.zip" -OutFile "C:\Sysinternals\BGInfo.zip"
-      when: dl_zip is failed
 
     - name: Розпакування BGInfo
       win_unzip:
