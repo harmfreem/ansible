@@ -8,6 +8,7 @@
       loop:
         - "C:/ProgramData/Microsoft/Windows/Start Menu/Programs/Startup/Bginfo.lnk"
         - "C:/Users/{{ ansible_user_id }}/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/Bginfo.lnk"
+      ignore_errors: yes
 
     - name: Видалення записів Bginfo з реєстру
       win_shell: |
