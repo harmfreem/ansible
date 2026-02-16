@@ -2,12 +2,13 @@
   hosts: all
   tasks:
     - name: Get BGInfo process state
-      win_shell: Get-Process Bginfo* -ErrorAction SilentlyContinue
+      win_shell: if (Get-Process Bginfo* -ErrorAction SilentlyContinue) { echo "Running" }
       register: bg_proc
+      changed_when: false
 
     - name: Kill BGInfo only if running
       win_shell: taskkill /F /IM Bginfo* /T
-      when: bg_proc.stdout != ""
+      when: '"Running" in bg_proc.stdout'
       ignore_errors: yes
 
     - name: Create directory
@@ -15,12 +16,17 @@
         path: C:\Sysinternals
         state: directory
 
-    - name: Force Download and Unzip
+    - name: Download BGInfo ZIP
+      win_get_url:
+        url: https://download.sysinternals.com/files/BGInfo.zip
+        dest: C:\Sysinternals\BGInfo.zip
+        force: yes
+
+    - name: Unzip BGInfo
       win_unzip:
-        src: https://download.sysinternals.com/files/BGInfo.zip
+        src: C:\Sysinternals\BGInfo.zip
         dest: C:\Sysinternals
         remote_src: yes
-        creates: C:\Sysinternals\Bginfo64.exe # Ansible перекачає, якщо файл буде видалено або змінено
 
     - name: Update Config
       win_get_url:
