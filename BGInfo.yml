@@ -9,15 +9,22 @@
       win_file:
         path: C:\Sysinternals
         state: absent
+      ignore_errors: yes
 
     - name: Створення чистої папки
       win_file:
         path: C:\Sysinternals
         state: directory
 
-    - name: Завантаження та розпакування оригіналу
+    - name: Завантаження архіву
+      win_get_url:
+        url: https://download.sysinternals.com/files/BGInfo.zip
+        dest: C:\Sysinternals\BGInfo.zip
+        force: yes
+
+    - name: Розпакування оригіналу
       win_unzip:
-        src: https://download.sysinternals.com/files/BGInfo.zip
+        src: C:\Sysinternals\BGInfo.zip
         dest: C:\Sysinternals
         remote_src: yes
 
@@ -27,7 +34,7 @@
         dest: C:\Sysinternals\micros.bgi
         force: yes
 
-    - name: Створення оригінального ярлика
+    - name: Створення ярлика
       win_shortcut:
         src: C:\Sysinternals\Bginfo64.exe
         dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
