@@ -24,6 +24,11 @@
         path: C:\Sysinternals
         state: directory
 
+    - name: Примусове видалення старого архіву перед завантаженням
+      win_file:
+        path: C:\Sysinternals\BGInfo.zip
+        state: absent
+
     - name: Завантаження архіву BGInfo
       win_get_url:
         url: https://download.sysinternals.com/files/BGInfo.zip
