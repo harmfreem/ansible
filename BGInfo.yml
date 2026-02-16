@@ -1,34 +1,43 @@
 - name: Налаштування BGInfo
   hosts: all
   tasks:
-    - name: Примусове створення директорії C:\Sysinternals
+    - name: Примусове очищення робочої директорії
       win_file:
-        path: 'C:\Sysinternals'
+        path: C:\Sysinternals
+        state: absent
+
+    - name: Створення чистої директорії C:\Sysinternals
+      win_file:
+        path: C:\Sysinternals
         state: directory
 
     - name: Завантаження архіву BGInfo
       win_get_url:
         url: https://download.sysinternals.com/files/BGInfo.zip
-        dest: 'C:\Sysinternals\BGInfo.zip'
+        dest: C:\Sysinternals\BGInfo.zip
         force: yes
+      register: download_zip
+      until: download_zip is succeeded
+      retries: 3
+      delay: 5
 
     - name: Розпакування BGInfo
       win_unzip:
-        src: 'C:\Sysinternals\BGInfo.zip'
-        dest: 'C:\Sysinternals'
+        src: C:\Sysinternals\BGInfo.zip
+        dest: C:\Sysinternals
         remote_src: yes
 
     - name: Завантаження конфігурації micros.bgi
       win_get_url:
         url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
-        dest: 'C:\Sysinternals\micros.bgi'
+        dest: C:\Sysinternals\micros.bgi
         force: yes
 
-    - name: Створення ярлика
+    - name: Створення ярлика автозапуску
       win_shortcut:
-        src: 'C:\Sysinternals\Bginfo64.exe'
-        dest: 'C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk'
+        src: C:\Sysinternals\Bginfo64.exe
+        dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
         arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
 
-    - name: Запуск
+    - name: Запуск BGInfo
       win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt"'
