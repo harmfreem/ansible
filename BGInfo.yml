@@ -45,6 +45,7 @@
       win_file:
         path: C:\Sysinternals\BGInfo.zip
         state: absent
+      ignore_errors: yes
 
     - name: Завантаження файлу конфігурації .bgi
       win_get_url:
@@ -61,3 +62,4 @@
 
     - name: Запуск BGInfo
       win_command: 'C:\Sysinternals\Bginfo64.exe "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
+      ignore_errors: yes
