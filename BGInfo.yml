@@ -1,44 +1,40 @@
 - name: Налаштування BGInfo
   hosts: all
   tasks:
-    - name: Вбити всі процеси BGInfo
+    - name: Kill processes
       win_shell: taskkill /F /IM Bginfo* /T
       ignore_errors: yes
 
-    - name: Повне видалення старої папки
-      win_file:
-        path: C:\Sysinternals
-        state: absent
+    - name: Force delete file
+      win_shell: Remove-Item -Path "C:\Sysinternals\Bginfo64.exe" -Force
       ignore_errors: yes
 
-    - name: Створення чистої папки
+    - name: Create directory
       win_file:
         path: C:\Sysinternals
         state: directory
 
-    - name: Завантаження архіву
+    - name: Download archive
       win_get_url:
         url: https://download.sysinternals.com/files/BGInfo.zip
         dest: C:\Sysinternals\BGInfo.zip
-        force: yes
 
-    - name: Розпакування оригіналу
+    - name: Unzip original
       win_unzip:
         src: C:\Sysinternals\BGInfo.zip
         dest: C:\Sysinternals
         remote_src: yes
 
-    - name: Завантаження конфігу
+    - name: Download config
       win_get_url:
         url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
         dest: C:\Sysinternals\micros.bgi
-        force: yes
 
-    - name: Створення ярлика
+    - name: Create shortcut
       win_shortcut:
         src: C:\Sysinternals\Bginfo64.exe
         dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
         arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
 
-    - name: Запуск
+    - name: Run
       win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt"'
