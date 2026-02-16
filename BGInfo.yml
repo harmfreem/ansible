@@ -1,12 +1,13 @@
 - name: Налаштування BGInfo
   hosts: all
   tasks:
-    - name: Примусове очищення робочої директорії
+    - name: Примусове видалення старої папки (якщо вона є)
       win_file:
         path: C:\Sysinternals
         state: absent
+      ignore_errors: yes
 
-    - name: Створення чистої директорії C:\Sysinternals
+    - name: Створення директорії C:\Sysinternals
       win_file:
         path: C:\Sysinternals
         state: directory
@@ -16,10 +17,13 @@
         url: https://download.sysinternals.com/files/BGInfo.zip
         dest: C:\Sysinternals\BGInfo.zip
         force: yes
-      register: download_zip
-      until: download_zip is succeeded
-      retries: 3
-      delay: 5
+      register: dl_zip
+      ignore_errors: yes
+
+    - name: Резервний метод завантаження через PowerShell
+      win_shell: |
+        Invoke-WebRequest -Uri "https://download.sysinternals.com/files/BGInfo.zip" -OutFile "C:\Sysinternals\BGInfo.zip"
+      when: dl_zip is failed
 
     - name: Розпакування BGInfo
       win_unzip:
