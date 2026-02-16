@@ -1,12 +1,13 @@
 - name: Налаштування BGInfo
   hosts: all
   tasks:
-    - name: Примусове завершення процесів BGInfo
+    - name: Жорстке завершення процесів BGInfo
       win_shell: |
-        Stop-Process -Name "Bginfo", "Bginfo64" -Force -ErrorAction SilentlyContinue
+        taskkill /F /IM Bginfo.exe /T
+        taskkill /F /IM Bginfo64.exe /T
       ignore_errors: yes
 
-    - name: Примусове видалення старої папки
+    - name: Очищення робочої директорії
       win_file:
         path: C:\Sysinternals
         state: absent
