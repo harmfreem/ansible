@@ -1,65 +1,34 @@
 - name: Налаштування BGInfo
   hosts: all
   tasks:
-    - name: Видалення старих ярликів автозапуску
+    - name: Примусове створення директорії C:\Sysinternals
       win_file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "C:/ProgramData/Microsoft/Windows/Start Menu/Programs/Startup/Bginfo.lnk"
-        - "C:/Users/{{ ansible_user_id }}/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/Bginfo.lnk"
-      ignore_errors: yes
-
-    - name: Видалення записів Bginfo з реєстру
-      win_shell: |
-        $paths = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run")
-        foreach ($path in $paths) {
-            Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -match "Bginfo" } | ForEach-Object {
-                Remove-ItemProperty -Path $path -Name $_.Name -Force
-            }
-        }
-
-    - name: Створення директорії C:\Sysinternals
-      win_file:
-        path: C:\Sysinternals
+        path: 'C:\Sysinternals'
         state: directory
-
-    - name: Примусове видалення старого архіву перед завантаженням
-      win_file:
-        path: C:\Sysinternals\BGInfo.zip
-        state: absent
 
     - name: Завантаження архіву BGInfo
       win_get_url:
         url: https://download.sysinternals.com/files/BGInfo.zip
-        dest: C:\Sysinternals\BGInfo.zip
+        dest: 'C:\Sysinternals\BGInfo.zip'
+        force: yes
 
     - name: Розпакування BGInfo
       win_unzip:
-        src: C:\Sysinternals\BGInfo.zip
-        dest: C:\Sysinternals
+        src: 'C:\Sysinternals\BGInfo.zip'
+        dest: 'C:\Sysinternals'
         remote_src: yes
-        creates: C:\Sysinternals\Bginfo64.exe
 
-    - name: Видалення завантаженого ZIP
-      win_file:
-        path: C:\Sysinternals\BGInfo.zip
-        state: absent
-      ignore_errors: yes
-
-    - name: Завантаження файлу конфігурації .bgi
+    - name: Завантаження конфігурації micros.bgi
       win_get_url:
         url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
-        dest: C:\Sysinternals\micros.bgi
+        dest: 'C:\Sysinternals\micros.bgi'
         force: yes
 
-    - name: Створення ярлика автозапуску
+    - name: Створення ярлика
       win_shortcut:
-        src: C:\Sysinternals\Bginfo64.exe
-        dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
+        src: 'C:\Sysinternals\Bginfo64.exe'
+        dest: 'C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk'
         arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
-        directory: C:\Sysinternals
 
-    - name: Запуск BGInfo
-      win_command: 'C:\Sysinternals\Bginfo64.exe "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
-      ignore_errors: yes
+    - name: Запуск
+      win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt"'
