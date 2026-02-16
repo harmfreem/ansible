@@ -1,55 +1,37 @@
 - name: Налаштування BGInfo
   hosts: all
   tasks:
-    - name: Створення директорії C:\Sysinternals
+    - name: Вбити всі процеси BGInfo
+      win_shell: taskkill /F /IM Bginfo* /T
+      ignore_errors: yes
+
+    - name: Повне видалення старої папки
+      win_file:
+        path: C:\Sysinternals
+        state: absent
+
+    - name: Створення чистої папки
       win_file:
         path: C:\Sysinternals
         state: directory
 
-    - name: Завантаження архіву BGInfo
-      win_get_url:
-        url: https://download.sysinternals.com/files/BGInfo.zip
-        dest: C:\Sysinternals\BGInfo.zip
-        force: yes
-
-    - name: Розпакування у тимчасову папку
+    - name: Завантаження та розпакування оригіналу
       win_unzip:
-        src: C:\Sysinternals\BGInfo.zip
-        dest: C:\Sysinternals\temp_bg
+        src: https://download.sysinternals.com/files/BGInfo.zip
+        dest: C:\Sysinternals
         remote_src: yes
 
-    - name: Копіювання з перейменуванням (обхід блокування)
-      win_copy:
-        src: C:\Sysinternals\temp_bg\Bginfo64.exe
-        dest: C:\Sysinternals\Bginfo64_new.exe
-        remote_src: yes
-
-    - name: Завантаження конфігурації
+    - name: Завантаження конфігу
       win_get_url:
         url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
         dest: C:\Sysinternals\micros.bgi
         force: yes
 
-    - name: Видалення старого ярлика
-      win_file:
-        path: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
-        state: absent
-      ignore_errors: yes
-
-    - name: Створення нового ярлика
+    - name: Створення оригінального ярлика
       win_shortcut:
-        src: C:\Sysinternals\Bginfo64_new.exe
-        dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo_new.lnk
+        src: C:\Sysinternals\Bginfo64.exe
+        dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
         arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
 
-    - name: Запуск нового процесу
-      win_shell: 'Start-Process "C:\Sysinternals\Bginfo64_new.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt"'
-
-    - name: Очищення тимчасових файлів
-      win_file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - C:\Sysinternals\temp_bg
-        - C:\Sysinternals\BGInfo.zip
-      ignore_errors: yes
+    - name: Запуск
+      win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt"'
