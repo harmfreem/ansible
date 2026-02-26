@@ -1,4 +1,4 @@
-- name: Update apps with service management
+- name: Update apps with Zabbix 2 management
   hosts: all
   gather_facts: no
   tasks:
@@ -7,34 +7,28 @@
       register: service_list
       changed_when: false
 
-    - name: Stop Zabbix services
+    - name: Stop Zabbix Agent 2
       ansible.windows.win_service:
-        name: "{{ item }}"
+        name: "Zabbix Agent 2"
         state: stopped
-      loop: ["Zabbix Agent", "Zabbix Agent 2"]
-      when: item in service_list.stdout_lines
-      register: zabbix_status
+      when: "'Zabbix Agent 2' in service_list.stdout_lines"
 
-    - name: Update Zabbix with config preservation
+    - name: Update Zabbix Agent 2 with config preservation
       ansible.windows.win_shell: |
-        $list = winget list --name "Zabbix Agent" --exact
+        $id = "Zabbix.ZabbixAgent2"
+        $check = winget list --id $id --exact
         if ($LASTEXITCODE -eq 0) {
-            winget upgrade --name "Zabbix Agent" --exact --override "REINSTALLMODE=amus" --accept-package-agreements --accept-source-agreements --silent
+            winget upgrade --id $id --exact --override "REINSTALLMODE=amus" --accept-package-agreements --accept-source-agreements --silent
         }
-      register: zabbix_update
       failed_when: false
 
     - name: Update all other packages
       ansible.windows.win_shell: |
         winget upgrade --all --accept-package-agreements --accept-source-agreements --silent
-      register: winget_update
       failed_when: false
 
-    - name: Start Zabbix services if they exist
+    - name: Start Zabbix Agent 2
       ansible.windows.win_service:
-        name: "{{ item.item }}"
+        name: "Zabbix Agent 2"
         state: started
-      loop: "{{ zabbix_status.results }}"
-      when: 
-        - item.exists is defined
-        - item.exists
+      when: "'Zabbix Agent 2' in service_list.stdout_lines"
