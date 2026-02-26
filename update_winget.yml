@@ -13,7 +13,7 @@
         state: stopped
       loop: ["Zabbix Agent", "Zabbix Agent 2"]
       when: item in service_list.stdout_lines
-      register: zabbix_stop
+      register: zabbix_status
 
     - name: Update Zabbix with config preservation
       ansible.windows.win_shell: |
@@ -23,22 +23,18 @@
         }
       register: zabbix_update
       failed_when: false
-      changed_when: "'Successfully installed' in zabbix_update.stdout"
 
     - name: Update all other packages
       ansible.windows.win_shell: |
         winget upgrade --all --accept-package-agreements --accept-source-agreements --silent
       register: winget_update
       failed_when: false
-      changed_when: 
-        - "'upgrades' in winget_update.stdout"
-        - "'0 upgrades' not in winget_update.stdout"
 
-    - name: Start Zabbix services
+    - name: Start Zabbix services if they exist
       ansible.windows.win_service:
         name: "{{ item.item }}"
         state: started
-      loop: "{{ zabbix_stop.results }}"
+      loop: "{{ zabbix_status.results }}"
       when: 
-        - item.changed is defined 
-        - item.changed
+        - item.exists is defined
+        - item.exists
