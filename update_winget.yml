@@ -1,10 +1,11 @@
-- name: Update apps with dynamic service management
+- name: Update apps with service check
   hosts: all
   gather_facts: no
   tasks:
-    - name: Get list of all services
-      ansible.windows.win_service_info:
-      register: installed_services
+    - name: Get list of service names via PowerShell
+      ansible.windows.win_shell: (Get-Service).Name
+      register: service_list
+      changed_when: false
 
     - name: Stop Zabbix services if they exist
       ansible.windows.win_service:
@@ -13,7 +14,7 @@
       loop:
         - "Zabbix Agent"
         - "Zabbix Agent 2"
-      when: item in (installed_services.services | map(attribute='name') | list)
+      when: item in service_list.stdout_lines
       register: zabbix_stop
 
     - name: Update all packages via Winget
