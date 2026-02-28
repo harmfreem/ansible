@@ -1,7 +1,7 @@
 ---
 - name: Install and configure Zabbix Agent 2 via winget
   hosts: zabbix
-  gather_facts: yes
+  gather_facts: false
 
   vars:
     zabbix_conf_path: "C:\\Program Files\\Zabbix Agent 2\\zabbix_agent2.conf"
