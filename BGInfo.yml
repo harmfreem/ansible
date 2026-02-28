@@ -1,5 +1,6 @@
 - name: Оновлення BGInfo
   hosts: all
+  gather_facts: false
   tasks:
     - name: Get BGInfo process state
       win_shell: if (Get-Process Bginfo* -ErrorAction SilentlyContinue) { echo "Running" }
