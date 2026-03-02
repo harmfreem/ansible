@@ -2,33 +2,31 @@
   hosts: all
   gather_facts: no
   tasks:
-    - name: Get list of service names
-      ansible.windows.win_shell: (Get-Service).Name
-      register: service_list
-      changed_when: false
+    - name: Get service info
+      ansible.windows.win_service_info:
+        name: "Zabbix Agent 2"
+      register: service_info
 
     - name: Stop Zabbix Agent 2
       ansible.windows.win_service:
         name: "Zabbix Agent 2"
         state: stopped
-      when: "'Zabbix Agent 2' in service_list.stdout_lines"
+      when: service_info.exists
 
-    - name: Update Zabbix Agent 2 with config preservation
+    - name: Update Zabbix Agent 2
       ansible.windows.win_shell: |
         $id = "Zabbix.ZabbixAgent2"
-        $check = winget list --id $id --exact
-        if ($LASTEXITCODE -eq 0) {
+        if (winget list --id $id --exact) {
             winget upgrade --id $id --exact --override "REINSTALLMODE=amus" --accept-package-agreements --accept-source-agreements --silent
         }
       failed_when: false
 
     - name: Update all other packages
-      ansible.windows.win_shell: |
-        winget upgrade --all --accept-package-agreements --accept-source-agreements --silent
+      ansible.windows.win_shell: winget upgrade --all --accept-package-agreements --accept-source-agreements --silent
       failed_when: false
 
     - name: Start Zabbix Agent 2
       ansible.windows.win_service:
         name: "Zabbix Agent 2"
         state: started
-      when: "'Zabbix Agent 2' in service_list.stdout_lines"
+      when: service_info.exists
