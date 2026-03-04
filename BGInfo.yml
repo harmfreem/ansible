@@ -7,19 +7,8 @@
         path: C:\Sysinternals
         state: directory
 
-    - name: Get BGInfo process state
-      win_shell: |
-        if (Get-Process Bginfo* -ErrorAction SilentlyContinue) { 
-            Write-Output "Running" 
-        } else { 
-            Write-Output "Stopped" 
-        }
-      register: bg_proc
-      changed_when: false
-
-    - name: Kill BGInfo only if running
-      win_shell: taskkill /F /IM Bginfo* /T
-      when: bg_proc.stdout is defined and "Running" in bg_proc.stdout
+    - name: Kill BGInfo
+      win_shell: Get-Process Bginfo* -ErrorAction SilentlyContinue | Stop-Process -Force
       ignore_errors: yes
 
     - name: Download BGInfo ZIP
@@ -39,6 +28,16 @@
         url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
         dest: C:\Sysinternals\micros.bgi
         force: yes
+
+    - name: Patch BGI Syntax (Fix None)
+      win_shell: |
+        $path = "C:\Sysinternals\micros.bgi"
+        $content = [System.IO.File]::ReadAllText($path)
+        $new_query = "SELECT IPAddress FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = 'True' AND DefaultIPGateway IS NOT NULL"
+        if ($content -like "*UserFields*") {
+            $content -replace 'SELECT.*?FROM.*?Win32_NetworkAdapterConfiguration.*?(?=[\x00-\x1F\x7F-\xFF])', $new_query | Set-Content $path -NoNewline
+        }
+      ignore_errors: yes
 
     - name: Update Shortcut
       win_shortcut:
