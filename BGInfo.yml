@@ -33,9 +33,7 @@
       win_shortcut:
         src: C:\Sysinternals\Bginfo64.exe
         dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
-        arguments: 'C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /pos:TR'
+        arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
 
-    - name: Run BGInfo Fixed
-      win_shell: |
-        $cmd = 'C:\Sysinternals\Bginfo64.exe "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /pos:TR'
-        Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList $cmd
+    - name: Run BGInfo
+      win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt"'
