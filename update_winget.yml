@@ -11,7 +11,7 @@
       ansible.windows.win_service:
         name: "Zabbix Agent 2"
         state: stopped
-      when: service_info.exists
+      when: service_info.services | length > 0
 
     - name: Update Zabbix Agent 2
       ansible.windows.win_shell: |
@@ -29,4 +29,4 @@
       ansible.windows.win_service:
         name: "Zabbix Agent 2"
         state: started
-      when: service_info.exists
+      when: service_info.services | length > 0
