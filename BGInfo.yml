@@ -29,21 +29,11 @@
         dest: C:\Sysinternals\micros.bgi
         force: yes
 
-    - name: Patch BGI Syntax (Fix None)
-      win_shell: |
-        $path = "C:\Sysinternals\micros.bgi"
-        $content = [System.IO.File]::ReadAllText($path)
-        $new_query = "SELECT IPAddress FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = 'True' AND DefaultIPGateway IS NOT NULL"
-        if ($content -like "*UserFields*") {
-            $content -replace 'SELECT.*?FROM.*?Win32_NetworkAdapterConfiguration.*?(?=[\x00-\x1F\x7F-\xFF])', $new_query | Set-Content $path -NoNewline
-        }
-      ignore_errors: yes
-
     - name: Update Shortcut
       win_shortcut:
         src: C:\Sysinternals\Bginfo64.exe
         dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
-        arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
+        arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /pos:TR'
 
     - name: Run BGInfo
-      win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt"'
+      win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt /pos:TR"'
