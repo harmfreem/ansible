@@ -2,6 +2,11 @@
   hosts: all
   gather_facts: false
   tasks:
+    - name: Create directory
+      win_file:
+        path: C:\Sysinternals
+        state: directory
+
     - name: Get BGInfo process state
       win_shell: |
         if (Get-Process Bginfo* -ErrorAction SilentlyContinue) { 
@@ -16,11 +21,6 @@
       win_shell: taskkill /F /IM Bginfo* /T
       when: bg_proc.stdout is defined and "Running" in bg_proc.stdout
       ignore_errors: yes
-
-    - name: Create directory
-      win_file:
-        path: C:\Sysinternals
-        state: directory
 
     - name: Download BGInfo ZIP
       win_get_url:
