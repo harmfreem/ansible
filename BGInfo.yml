@@ -3,13 +3,18 @@
   gather_facts: false
   tasks:
     - name: Get BGInfo process state
-      win_shell: if (Get-Process Bginfo* -ErrorAction SilentlyContinue) { echo "Running" }
+      win_shell: |
+        if (Get-Process Bginfo* -ErrorAction SilentlyContinue) { 
+            Write-Output "Running" 
+        } else { 
+            Write-Output "Stopped" 
+        }
       register: bg_proc
       changed_when: false
 
     - name: Kill BGInfo only if running
       win_shell: taskkill /F /IM Bginfo* /T
-      when: '"Running" in bg_proc.stdout'
+      when: bg_proc.stdout is defined and "Running" in bg_proc.stdout
       ignore_errors: yes
 
     - name: Create directory
