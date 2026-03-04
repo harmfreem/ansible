@@ -6,34 +6,34 @@
       win_file:
         path: C:\Sysinternals
         state: directory
-
     - name: Kill BGInfo
       win_shell: Get-Process Bginfo* -ErrorAction SilentlyContinue | Stop-Process -Force
       ignore_errors: yes
-
     - name: Download BGInfo ZIP
       win_get_url:
         url: https://download.sysinternals.com/files/BGInfo.zip
         dest: C:\Sysinternals\BGInfo.zip
         force: yes
-
     - name: Unzip BGInfo
       win_unzip:
         src: C:\Sysinternals\BGInfo.zip
         dest: C:\Sysinternals
         remote_src: yes
-
     - name: Update Config from GitHub
       win_get_url:
         url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
         dest: C:\Sysinternals\micros.bgi
         force: yes
-
     - name: Create Startup Shortcut
       win_shortcut:
         src: C:\Sysinternals\Bginfo64.exe
         dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
         arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt'
-
+    - name: Disable IPv6
+      win_shell: |
+        Get-NetAdapter | ForEach-Object {
+          Set-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6 -Enabled $false
+        }
+      ignore_errors: yes
     - name: Execute BGInfo Now
       win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt"'
