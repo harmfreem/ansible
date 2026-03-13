@@ -1,58 +1,32 @@
-- name: Оновлення BGInfo (Фінальна стабільна версія)
+- name: Оновлення BGInfo та встановлення сірого фону
   hosts: all
   gather_facts: false
   tasks:
-    - name: Ensure directory exists
-      win_file:
-        path: C:\Sysinternals
-        state: directory
-
-    - name: Terminate any existing BGInfo processes
-      win_shell: |
-        $procs = Get-Process Bginfo* -ErrorAction SilentlyContinue
-        if ($procs) { $procs | Stop-Process -Force }
+    - name: Kill BGInfo
+      win_shell: Stop-Process -Name "Bginfo*" -Force
       ignore_errors: yes
 
-    - name: Download BGInfo and Config
-      win_get_url:
-        url: "{{ item.url }}"
-        dest: "{{ item.dest }}"
-        force: yes
-      loop:
-        - { url: 'https://download.sysinternals.com/files/BGInfo.zip', dest: 'C:\Sysinternals\BGInfo.zip' }
-        - { url: 'https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi', dest: 'C:\Sysinternals\micros.bgi' }
-
-    - name: Unzip, Unblock and Fix Attributes
+    - name: Set Background Color to Gray and Clear Wallpaper
       win_shell: |
-        Expand-Archive -Path C:\Sysinternals\BGInfo.zip -DestinationPath C:\Sysinternals -Force
-        Unblock-File -Path C:\Sysinternals\*.*
-        Get-ChildItem -Path C:\Sysinternals -Recurse | ForEach-Object { 
-          $_.Attributes = 'Normal' 
+        # 1. Прибираємо шлях до файлу шпалер (робимо порожнім)
+        Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name Wallpaper -Value ""
+        
+        # 2. Встановлюємо колір (RGB: сірий - 128 128 128)
+        Set-ItemProperty -Path 'HKCU:\Control Panel\Colors' -Name Background -Value "128 128 128"
+        
+        # 3. Видаляємо тимчасовий файл BGInfo, щоб не було накладання
+        $tempBmp = "$env:TEMP\BGInfo.bmp"
+        if (Test-Path $tempBmp) { Remove-Item $tempBmp -Force }
+
+        # 4. Оновлюємо налаштування системи
+        Add-Type -TypeDefinition @'
+        using System.Runtime.InteropServices;
+        public class Win32 {
+            [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+            public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, string pvParam, uint fWinIni);
         }
+'@
+        [Win32]::SystemParametersInfo(0x0014, 0, "", 0x01 -bor 0x02)
 
-    - name: Set Full Control for Everyone via SID
-      win_acl:
-        path: C:\Sysinternals
-        user: 'S-1-1-0'
-        rights: FullControl
-        type: allow
-        state: present
-
-    - name: Execute BGInfo Now
-      win_shell: |
-        cmd.exe /c 'C:\Sysinternals\Bginfo64.exe "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i'
-      args:
-        chdir: C:\Sysinternals
-
-    - name: Create Startup Shortcut
-      win_shortcut:
-        src: C:\Sysinternals\Bginfo64.exe
-        dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
-        arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i'
-
-    - name: Disable IPv6
-      win_shell: |
-        Get-NetAdapter | ForEach-Object {
-          Set-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6 -Enabled $false
-        }
-      ignore_errors: yes
+    - name: Execute BGInfo
+      win_shell: 'C:\Sysinternals\Bginfo64.exe "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i'
