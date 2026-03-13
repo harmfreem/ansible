@@ -1,35 +1,36 @@
-- name: Оновлення BGInfo через файл конфігурації
+- name: Оновлення BGInfo (Фінальна стабільна версія)
   hosts: all
   gather_facts: false
   tasks:
-    - name: Create directory
+    - name: Ensure directory exists
       win_file:
         path: C:\Sysinternals
         state: directory
 
-    - name: Kill BGInfo
-      win_shell: Get-Process Bginfo* -ErrorAction SilentlyContinue | Stop-Process -Force
+    - name: Terminate any existing BGInfo processes
+      win_shell: |
+        $procs = Get-Process Bginfo* -ErrorAction SilentlyContinue
+        if ($procs) { $procs | Stop-Process -Force }
       ignore_errors: yes
 
-    - name: Download BGInfo ZIP
+    - name: Download BGInfo and Config
       win_get_url:
-        url: https://download.sysinternals.com/files/BGInfo.zip
-        dest: C:\Sysinternals\BGInfo.zip
+        url: "{{ item.url }}"
+        dest: "{{ item.dest }}"
         force: yes
+      loop:
+        - { url: 'https://download.sysinternals.com/files/BGInfo.zip', dest: 'C:\Sysinternals\BGInfo.zip' }
+        - { url: 'https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi', dest: 'C:\Sysinternals\micros.bgi' }
 
-    - name: Unzip BGInfo
-      win_unzip:
-        src: C:\Sysinternals\BGInfo.zip
-        dest: C:\Sysinternals
-        remote_src: yes
+    - name: Unzip, Unblock and Fix Attributes
+      win_shell: |
+        Expand-Archive -Path C:\Sysinternals\BGInfo.zip -DestinationPath C:\Sysinternals -Force
+        Unblock-File -Path C:\Sysinternals\*.*
+        Get-ChildItem -Path C:\Sysinternals -Recurse | ForEach-Object { 
+          $_.Attributes = 'Normal' 
+        }
 
-    - name: Update Config from GitHub
-      win_get_url:
-        url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
-        dest: C:\Sysinternals\micros.bgi
-        force: yes
-
-    - name: Set permissions for C:\Sysinternals (using SID for Everyone)
+    - name: Set Full Control for Everyone via SID
       win_acl:
         path: C:\Sysinternals
         user: 'S-1-1-0'
@@ -37,13 +38,11 @@
         type: allow
         state: present
 
-    - name: Remove Read-Only attribute
+    - name: Execute BGInfo Now
       win_shell: |
-        Get-ChildItem -Path "C:\Sysinternals\*" -Recurse | ForEach-Object { 
-          if ($_.Attributes -match "ReadOnly") { 
-            $_.Attributes = 'Normal' 
-          } 
-        }
+        cmd.exe /c 'C:\Sysinternals\Bginfo64.exe "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i'
+      args:
+        chdir: C:\Sysinternals
 
     - name: Create Startup Shortcut
       win_shortcut:
@@ -57,6 +56,3 @@
           Set-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6 -Enabled $false
         }
       ignore_errors: yes
-
-    - name: Execute BGInfo Now
-      win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt /i"'
