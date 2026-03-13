@@ -1,18 +1,60 @@
-- name: BGInfo Deploy
+- name: Оновлення BGInfo через файл конфігурації
   hosts: all
   gather_facts: false
   tasks:
-    - name: Ensure Directory
+    - name: Create directory
       win_file:
         path: C:\Sysinternals
         state: directory
 
-    - name: Download Config
+    - name: Kill BGInfo
+      win_shell: Get-Process Bginfo* -ErrorAction SilentlyContinue | Stop-Process -Force
+      ignore_errors: yes
+
+    - name: Download BGInfo ZIP
+      win_get_url:
+        url: https://download.sysinternals.com/files/BGInfo.zip
+        dest: C:\Sysinternals\BGInfo.zip
+        force: yes
+
+    - name: Unzip BGInfo
+      win_unzip:
+        src: C:\Sysinternals\BGInfo.zip
+        dest: C:\Sysinternals
+        remote_src: yes
+
+    - name: Update Config from GitHub
       win_get_url:
         url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
         dest: C:\Sysinternals\micros.bgi
         force: yes
 
-    - name: Apply BGInfo
+    - name: Set permissions for service account
+      win_acl:
+        path: C:\Sysinternals
+        user: anyname
+        rights: FullControl
+        type: allow
+        state: present
+
+    - name: Remove Read-Only attribute
+      win_file:
+        path: C:\Sysinternals
+        recurse: yes
+        attributes: normal
+
+    - name: Create Startup Shortcut
+      win_shortcut:
+        src: C:\Sysinternals\Bginfo64.exe
+        dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
+        arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i /p'
+
+    - name: Disable IPv6
       win_shell: |
-        C:\Sysinternals\Bginfo64.exe C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i /p
+        Get-NetAdapter | ForEach-Object {
+          Set-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6 -Enabled $false
+        }
+      ignore_errors: yes
+
+    - name: Execute BGInfo Now
+      win_shell: 'Start-Process "C:\Sysinternals\Bginfo64.exe" -ArgumentList "`"C:\Sysinternals\micros.bgi`" /timer:0 /silent /nolicprompt /i /p"'
