@@ -1,18 +1,27 @@
-- name: Оновлення фону виключно через BGInfo
+- name: Повне налаштування BGInfo
   hosts: all
   gather_facts: false
   tasks:
-    - name: Kill BGInfo
+    - name: Створення папки в Sysinternals
+      win_file:
+        path: C:\Sysinternals
+        state: directory
+
+    - name: Завантаження файлу налаштувань micros.bgi
+      win_get_url:
+        url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
+        dest: C:\Sysinternals\micros.bgi
+        force: yes
+
+    - name: Зупинка процесів BGInfo
       win_shell: |
         Get-Process Bginfo* -ErrorAction SilentlyContinue | Stop-Process -Force
       ignore_errors: yes
 
-    - name: Force Apply BGInfo
+    - name: Очищення старого кешу шпалер
+      win_shell: |
+        Remove-Item "$env:TEMP\BGInfo.bmp" -Force -ErrorAction SilentlyContinue
+
+    - name: Запуск BGInfo для оновлення фону
       win_shell: |
         C:\Sysinternals\Bginfo64.exe C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i /p
-
-    - name: Create Startup Shortcut
-      win_shortcut:
-        src: C:\Sysinternals\Bginfo64.exe
-        dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
-        arguments: C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i
