@@ -1,4 +1,4 @@
-- name: Оновлення BGInfo та встановлення сірого фону
+- name: Встановлення сірого фону через BGInfo
   hosts: all
   gather_facts: false
   tasks:
@@ -13,19 +13,15 @@
         name: Background
         data: 128 128 128
 
-    - name: Remove Wallpaper Path
+    - name: Set Background Type
       win_regedit:
         path: HKCU:\Control Panel\Desktop
         name: Wallpaper
         data: ""
 
-    - name: Update Desktop Settings
+    - name: Execute BGInfo with Background Override
       win_shell: |
-        Rundll32.exe user32.dll,UpdatePerUserSystemParameters
-
-    - name: Execute BGInfo
-      win_shell: |
-        C:\Sysinternals\Bginfo64.exe C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i
+        C:\Sysinternals\Bginfo64.exe C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i /p
 
     - name: Create Startup Shortcut
       win_shortcut:
