@@ -7,7 +7,7 @@
         Get-Process Bginfo* -ErrorAction SilentlyContinue | Stop-Process -Force
       ignore_errors: yes
 
-    - name: Set Gray Background Color
+    - name: Set Registry Background Color
       win_regedit:
         path: HKCU:\Control Panel\Colors
         name: Background
@@ -19,24 +19,9 @@
         name: Wallpaper
         data: ""
 
-    - name: Force Apply Color via Registry and Refresh
+    - name: Update Desktop Settings
       win_shell: |
-        $regPath = "HKCU:\Control Panel\Colors"
-        Set-ItemProperty -Path $regPath -Name Background -Value "128 128 128"
-        $Definition = @"
-        using System;
-        using System.Runtime.InteropServices;
-        public class Win32 {
-            [DllImport("user32.dll")]
-            public static extern bool SetSysColors(int nElements, int[] lpaElements, int[] lpaRgbValues);
-            [DllImport("user32.dll", CharSet = CharSet.Auto)]
-            public static extern int SystemParametersInfo(int uAction, int uParam, string pvParam, int fWinIni);
-        }
-        "@
-        Add-Type -TypeDefinition $Definition -ErrorAction SilentlyContinue
-        # 0x808080 у форматі BGR (Windows COLORREF) — це 8421504
-        [Win32]::SetSysColors(1, @(1), @(8421504))
-        [Win32]::SystemParametersInfo(0x0014, 0, $null, 0x01 + 0x02)
+        Rundll32.exe user32.dll,UpdatePerUserSystemParameters
 
     - name: Execute BGInfo
       win_shell: |
