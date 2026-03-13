@@ -19,8 +19,10 @@
         name: Wallpaper
         data: ""
 
-    - name: Apply Desktop Settings
+    - name: Force Apply Color via Registry and Refresh
       win_shell: |
+        $regPath = "HKCU:\Control Panel\Colors"
+        Set-ItemProperty -Path $regPath -Name Background -Value "128 128 128"
         $Definition = @"
         using System;
         using System.Runtime.InteropServices;
@@ -32,9 +34,9 @@
         }
         "@
         Add-Type -TypeDefinition $Definition -ErrorAction SilentlyContinue
-        # Використовуємо десяткове значення для сірого (RGB 128,128,128 -> 0x808080 -> 8421504)
+        # 0x808080 у форматі BGR (Windows COLORREF) — це 8421504
         [Win32]::SetSysColors(1, @(1), @(8421504))
-        [Win32]::SystemParametersInfo(0x0014, 0, $null, 0x01)
+        [Win32]::SystemParametersInfo(0x0014, 0, $null, 0x01 + 0x02)
 
     - name: Execute BGInfo
       win_shell: |
