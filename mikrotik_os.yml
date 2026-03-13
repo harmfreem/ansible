@@ -1,0 +1,12 @@
+- name: Get RouterOS Version
+  hosts: mikrotik
+  gather_facts: no
+  tasks:
+    - name: Run system resource print
+      community.network.routeros_command:
+        commands: /system resource print
+      register: output
+
+    - name: Print version
+      debug:
+        msg: "{{ output.stdout_lines[0] | select('search', 'version') | list }}"
