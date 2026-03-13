@@ -29,10 +29,10 @@
         dest: C:\Sysinternals\micros.bgi
         force: yes
 
-    - name: Set permissions for C:\Sysinternals
+    - name: Set permissions for C:\Sysinternals (using SID for Everyone)
       win_acl:
         path: C:\Sysinternals
-        user: Everyone
+        user: 'S-1-1-0'
         rights: FullControl
         type: allow
         state: present
