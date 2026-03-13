@@ -29,14 +29,6 @@
         dest: C:\Sysinternals\micros.bgi
         force: yes
 
-    - name: Set permissions
-      win_acl:
-        path: C:\Sysinternals
-        user: Everyone
-        rights: FullControl
-        type: allow
-        state: present
-
     - name: Remove Read-Only attribute
       win_file:
         path: C:\Sysinternals
