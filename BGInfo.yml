@@ -3,7 +3,7 @@
   gather_facts: false
   tasks:
     - name: Kill BGInfo
-      win_shell: Stop-Process -Name "Bginfo*" -Force
+      win_shell: Get-Process Bginfo* -ErrorAction SilentlyContinue | Stop-Process -Force
       ignore_errors: yes
 
     - name: Set Gray Background Color
@@ -18,10 +18,21 @@
         name: Wallpaper
         data: ""
 
-    - name: Force Refresh Desktop
+    - name: Apply Desktop Settings
       win_shell: |
-        Rundll32.exe user32.dll,UpdatePerUserSystemParameters
-        powershell.exe -command "Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class Win32 { [DllImport(\"user32.dll\")] public static extern bool SetSysColors(int nElements, int[] lpaElements, int[] lpaRgbValues); }'; [Win32]::SetSysColors(1, @(1), @(0x808080))"
+        $Definition = @"
+        using System;
+        using System.Runtime.InteropServices;
+        public class Win32 {
+            [DllImport("user32.dll")]
+            public static extern bool SetSysColors(int nElements, int[] lpaElements, int[] lpaRgbValues);
+            [DllImport("user32.dll", CharSet = CharSet.Auto)]
+            public static extern int SystemParametersInfo(int uAction, int uParam, string pvParam, int fWinIni);
+        }
+        "@
+        Add-Type -TypeDefinition $Definition
+        [Win32]::SetSysColors(1, @(1), @(0x808080))
+        [Win32]::SystemParametersInfo(0x0014, 0, $null, 0x01)
 
     - name: Execute BGInfo
       win_shell: C:\Sysinternals\Bginfo64.exe C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i
