@@ -18,6 +18,11 @@
         name: Wallpaper
         data: ""
 
+    - name: Force Refresh Desktop
+      win_shell: |
+        Rundll32.exe user32.dll,UpdatePerUserSystemParameters
+        powershell.exe -command "Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class Win32 { [DllImport(\"user32.dll\")] public static extern bool SetSysColors(int nElements, int[] lpaElements, int[] lpaRgbValues); }'; [Win32]::SetSysColors(1, @(1), @(0x808080))"
+
     - name: Execute BGInfo
       win_shell: C:\Sysinternals\Bginfo64.exe C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i
 
