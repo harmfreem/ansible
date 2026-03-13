@@ -1,4 +1,4 @@
-- name: Встановлення сірого фону через BGInfo
+- name: Оновлення фону через BGInfo
   hosts: all
   gather_facts: false
   tasks:
@@ -7,21 +7,9 @@
         Get-Process Bginfo* -ErrorAction SilentlyContinue | Stop-Process -Force
       ignore_errors: yes
 
-    - name: Set Registry Background Color
-      win_regedit:
-        path: HKCU:\Control Panel\Colors
-        name: Background
-        data: 128 128 128
-
-    - name: Set Background Type
-      win_regedit:
-        path: HKCU:\Control Panel\Desktop
-        name: Wallpaper
-        data: ""
-
-    - name: Execute BGInfo with Background Override
+    - name: Execute BGInfo
       win_shell: |
-        C:\Sysinternals\Bginfo64.exe C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i /p
+        C:\Sysinternals\Bginfo64.exe C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i
 
     - name: Create Startup Shortcut
       win_shortcut:
