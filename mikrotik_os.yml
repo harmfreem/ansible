@@ -2,11 +2,11 @@
   hosts: mikrotik
   gather_facts: no
   tasks:
-    - name: Run system resource print
+    - name: Get clean version string
       community.network.routeros_command:
-        commands: /system resource print
+        commands: /system resource get version
       register: output
 
     - name: Print version
       debug:
-        msg: "{{ output.stdout_lines[0] | select('search', 'version') | list }}"
+        msg: "{{ output.stdout[0] | trim }}"
