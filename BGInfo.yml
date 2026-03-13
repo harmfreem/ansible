@@ -6,19 +6,12 @@
       win_shell: Stop-Process -Name "Bginfo*" -Force
       ignore_errors: yes
 
-    - name: Set Background Color to Gray and Clear Wallpaper
+    - name: Set Background Color to Gray
       win_shell: |
-        # 1. Прибираємо шлях до файлу шпалер (робимо порожнім)
         Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name Wallpaper -Value ""
-        
-        # 2. Встановлюємо колір (RGB: сірий - 128 128 128)
         Set-ItemProperty -Path 'HKCU:\Control Panel\Colors' -Name Background -Value "128 128 128"
-        
-        # 3. Видаляємо тимчасовий файл BGInfo, щоб не було накладання
         $tempBmp = "$env:TEMP\BGInfo.bmp"
         if (Test-Path $tempBmp) { Remove-Item $tempBmp -Force }
-
-        # 4. Оновлюємо налаштування системи
         Add-Type -TypeDefinition @'
         using System.Runtime.InteropServices;
         public class Win32 {
@@ -29,4 +22,10 @@
         [Win32]::SystemParametersInfo(0x0014, 0, "", 0x01 -bor 0x02)
 
     - name: Execute BGInfo
-      win_shell: 'C:\Sysinternals\Bginfo64.exe "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i'
+      win_shell: '"C:\Sysinternals\Bginfo64.exe" "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i'
+
+    - name: Create Startup Shortcut
+      win_shortcut:
+        src: 'C:\Sysinternals\Bginfo64.exe'
+        dest: 'C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk'
+        arguments: '"C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i'
