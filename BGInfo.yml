@@ -29,10 +29,10 @@
         dest: C:\Sysinternals\micros.bgi
         force: yes
 
-    - name: Set permissions for service account
+    - name: Set permissions
       win_acl:
         path: C:\Sysinternals
-        user: anyname
+        user: Everyone
         rights: FullControl
         type: allow
         state: present
