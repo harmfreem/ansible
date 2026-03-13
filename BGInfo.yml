@@ -3,7 +3,8 @@
   gather_facts: false
   tasks:
     - name: Kill BGInfo
-      win_shell: Stop-Process -Name "Bginfo*" -Force
+      win_shell: |
+        Stop-Process -Name "Bginfo*" -Force
       ignore_errors: yes
 
     - name: Set Background Color to Gray
@@ -22,12 +23,12 @@
         [Win32]::SystemParametersInfo(0x0014, 0, "", 0x01 -bor 0x02)
 
     - name: Execute BGInfo
-      win_shell: >
+      win_shell: |
         C:\Sysinternals\Bginfo64.exe "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i
 
     - name: Create Startup Shortcut
       win_shortcut:
         src: C:\Sysinternals\Bginfo64.exe
         dest: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Bginfo.lnk
-        arguments: >
+        arguments: |
           "C:\Sysinternals\micros.bgi" /timer:0 /silent /nolicprompt /i
