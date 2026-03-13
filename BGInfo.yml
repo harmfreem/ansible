@@ -1,27 +1,18 @@
-- name: Повне налаштування BGInfo
+- name: BGInfo Deploy
   hosts: all
   gather_facts: false
   tasks:
-    - name: Створення папки в Sysinternals
+    - name: Ensure Directory
       win_file:
         path: C:\Sysinternals
         state: directory
 
-    - name: Завантаження файлу налаштувань micros.bgi
+    - name: Download Config
       win_get_url:
         url: https://raw.githubusercontent.com/harmfreem/ansible/main/micros.bgi
         dest: C:\Sysinternals\micros.bgi
         force: yes
 
-    - name: Зупинка процесів BGInfo
-      win_shell: |
-        Get-Process Bginfo* -ErrorAction SilentlyContinue | Stop-Process -Force
-      ignore_errors: yes
-
-    - name: Очищення старого кешу шпалер
-      win_shell: |
-        Remove-Item "$env:TEMP\BGInfo.bmp" -Force -ErrorAction SilentlyContinue
-
-    - name: Запуск BGInfo для оновлення фону
+    - name: Apply BGInfo
       win_shell: |
         C:\Sysinternals\Bginfo64.exe C:\Sysinternals\micros.bgi /timer:0 /silent /nolicprompt /i /p
