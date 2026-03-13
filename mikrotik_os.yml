@@ -9,4 +9,4 @@
 
     - name: Print version
       debug:
-        msg: "{{ output.stdout[0] | trim }}"
+        var: output
